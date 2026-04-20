@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>RISTOAPP — Trova ristoranti, pizzerie e trattorie in Italia</title>
+  <meta name="description" content="Cerca ristoranti, pizzerie e trattorie nella tua zona e confronta i menu sui principali portali di ordinazione e prenotazione." />
+
+  <meta name="theme-color" content="#C44536" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./icons/favicon.svg" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="RISTOAPP" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="brand">
+      <div>
+        <div class="brand-mark">RistoApp</div>
+        <div class="brand-tag">Trova &middot; Confronta &middot; Mangia</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="owner-entry-btn" id="ownerBtn" title="Sei un ristoratore? Registra la tua attivit&agrave;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2V11z"/></svg>
+        <span>Sei un ristoratore?</span>
+      </button>
+      <button class="icon-btn" id="installBtn" aria-label="Installa app" title="Installa come app">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- HERO + RICERCA -->
+  <section class="hero">
+    <h1 class="hero-title">Che cosa hai <em>voglia</em> di mangiare?</h1>
+    <p class="hero-sub">Trova i locali della zona e vai direttamente al menu e ai prezzi sui portali che gi&agrave; usi: JustEat, Deliveroo, TheFork, Glovo.</p>
+
+    <div class="search-card">
+      <div class="field">
+        <div class="field-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </div>
+        <div class="field-body">
+          <label for="queryInput">Piatto o tipo cucina</label>
+          <input id="queryInput" type="text" placeholder="es. pizza, sushi, trattoria..." autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div class="field-body">
+          <label for="cityInput">Localit&agrave;</label>
+          <input id="cityInput" type="text" list="cityOptions" placeholder="Qualsiasi citt&agrave; italiana" autocomplete="off" />
+          <datalist id="cityOptions"></datalist>
+        </div>
+      </div>
+
+      <button class="btn-geo" id="geoBtn" title="Usa la mia posizione">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+        Posizione
+      </button>
+
+      <button class="btn-primary" id="searchBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        Cerca
+      </button>
+    </div>
+  </section>
+
+  <!-- FILTRI -->
+  <section class="filters" aria-label="Tipo di locale">
+    <span class="filter-label">Tipo</span>
+    <div id="amenityChips" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="chip is-active" data-amenity="all">Tutti</button>
+      <button class="chip" data-amenity="restaurant">Ristoranti</button>
+      <button class="chip" data-amenity="fast_food">Pizzerie / fast food</button>
+      <button class="chip" data-amenity="cafe">Caff&egrave;</button>
+      <button class="chip" data-amenity="bar">Bar</button>
+      <button class="chip" data-amenity="pub">Pub</button>
+      <button class="chip" data-amenity="ice_cream">Gelaterie</button>
+    </div>
+  </section>
+  <section class="filters">
+    <span class="filter-label">Raggio</span>
+    <select id="radiusSelect" class="sort-select">
+      <option value="1000">1 km</option>
+      <option value="3000" selected>3 km</option>
+      <option value="5000">5 km</option>
+      <option value="10000">10 km</option>
+    </select>
+    <select id="sortSelect" class="sort-select" style="margin-left:auto">
+      <option value="distance">Pi&ugrave; vicini</option>
+      <option value="name">Nome A-Z</option>
+      <option value="open">Prima quelli con orari</option>
+    </select>
+  </section>
+
+  <!-- LOADING -->
+  <div id="loading" class="loading-banner" style="display:none">
+    <div class="spinner"></div>
+    <span>Cerco ristoranti reali su OpenStreetMap...</span>
+  </div>
+
+  <!-- RISULTATI -->
+  <main class="results">
+    <div class="results-head">
+      <h2 id="resultsTitle"></h2>
+      <div class="results-count" id="resultsCount"></div>
+    </div>
+    <div class="cards" id="results" aria-live="polite"></div>
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="app-footer">
+    <p><strong>RistoApp</strong> &middot; Dati dei locali: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">&copy; OpenStreetMap contributors</a> (licenza ODbL).</p>
+    <p>RistoApp non memorizza men&ugrave; o prezzi. I bottoni JustEat, Deliveroo, TheFork, Glovo aprono la ricerca sui rispettivi portali ufficiali.</p>
+  </footer>
+
+  <!-- MODAL -->
+  <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true">
+    <div class="modal" id="modalContent"></div>
+  </div>
+
+  <!-- INSTALL BANNER -->
+  <div class="install-banner" id="installBanner">
+    <span>Installa RistoApp sul telefono per un accesso rapido.</span>
+    <button id="installBannerBtn">Installa</button>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="./js/data.js"></script>
+  <!-- Firebase SDK (compat) - Fase 2 backend condiviso -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <script src="./js/store.js"></script>
+  <script src="./js/owner.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
