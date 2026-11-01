@@ -798,9 +798,55 @@ a { color: inherit; }
 .owner-entry-btn:hover { background: var(--c-olive-2); transform: translateY(-1px); }
 .owner-entry-btn svg { width: 16px; height: 16px; }
 @media (max-width: 520px) {
-  .owner-entry-btn span { display: none; }
-  .owner-entry-btn { padding: 9px; width: 40px; height: 40px; justify-content: center; }
-  .owner-entry-btn svg { width: 18px; height: 18px; }
+  .owner-entry-btn { padding: 9px 12px; font-size: 12px; }
+  .owner-entry-btn svg { width: 16px; height: 16px; }
+}
+@media (max-width: 360px) {
+  .owner-entry-btn svg { display: none; }
+}
+
+/* Invito ai titolari (B&B, agriturismi, ristoranti) */
+.owner-cta {
+  margin-top: 22px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 22px 26px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #606C38 0%, #4F5A2D 100%);
+  color: #FBF5EC;
+  box-shadow: 0 14px 34px rgba(79,90,45,.22);
+}
+.owner-cta-text { flex: 1; min-width: 0; }
+.owner-cta-eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; font-weight: 600; }
+.owner-cta-title {
+  font-family: var(--f-display);
+  font-size: clamp(22px, 3vw, 30px);
+  line-height: 1.12;
+  font-weight: 600;
+  margin: 6px 0 10px;
+}
+.owner-cta-title em { font-style: italic; color: #FFD9C9; font-weight: 500; }
+.owner-cta-steps { margin: 0 0 8px 20px; padding: 0; font-size: 14px; line-height: 1.55; }
+.owner-cta-steps strong { color: #fff; }
+.owner-cta-note { margin: 0; font-size: 13px; opacity: .85; }
+.owner-cta-btn {
+  flex-shrink: 0;
+  background: var(--c-accent);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 16px 28px;
+  font: 700 16px var(--f-body, inherit);
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(196,69,54,.35);
+  transition: transform .15s;
+}
+.owner-cta-btn:hover { transform: translateY(-1px); }
+.owner-cta--inline { margin: 0 0 12px; grid-column: 1 / -1; }
+@media (max-width: 640px) {
+  .owner-cta { flex-direction: column; align-items: stretch; padding: 20px; }
+  .owner-cta-btn { width: 100%; }
 }
 
 /* Badge "verificato" sulle card */

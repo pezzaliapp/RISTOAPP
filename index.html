@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./css/styles.css?v=4.7.0" />
+  <link rel="stylesheet" href="./css/styles.css?v=4.8.0" />
 </head>
 <body>
 
@@ -58,7 +58,7 @@
     <div class="header-actions">
       <button class="owner-entry-btn" id="ownerBtn" title="Hai un ristorante o un B&amp;B? Registralo gratis">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2V11z"/></svg>
-        <span>Registra la tua attivit&agrave;</span>
+        <span>Registrati gratis</span>
       </button>
       <button class="icon-btn" id="installBtn" aria-label="Installa app" title="Installa come app">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -103,6 +103,21 @@
         Cerca
       </button>
     </div>
+
+    <!-- INVITO AI TITOLARI -->
+    <aside class="owner-cta" id="registrati" aria-labelledby="ownerCtaTitle">
+      <div class="owner-cta-text">
+        <div class="owner-cta-eyebrow">Hai un B&amp;B, un agriturismo o un ristorante?</div>
+        <h2 class="owner-cta-title" id="ownerCtaTitle">Registra gratis la tua attivit&agrave; e fai conoscere il tuo <em>B&amp;B</em></h2>
+        <ol class="owner-cta-steps">
+          <li><strong>Crea un account</strong> con la tua email</li>
+          <li><strong>Inserisci la struttura</strong>: camere, prezzi a notte, servizi</li>
+          <li><strong>Compari in cima</strong> alle ricerche, col segno &#10003; del titolare</li>
+        </ol>
+        <p class="owner-cta-note">Gratis per sempre &middot; Nessuna commissione &middot; Gli ospiti ti contattano direttamente</p>
+      </div>
+      <button class="owner-cta-btn" data-owner-register>Registrati gratis</button>
+    </aside>
   </section>
 
   <!-- FILTRI -->
@@ -179,13 +194,13 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="./js/data.js?v=4.7.0"></script>
+  <script src="./js/data.js?v=4.8.0"></script>
   <!-- Firebase SDK (compat) - Fase 2 backend condiviso -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="./js/store.js?v=4.7.0"></script>
-  <script src="./js/owner.js?v=4.7.0"></script>
-  <script src="./js/app.js?v=4.7.0"></script>
+  <script src="./js/store.js?v=4.8.0"></script>
+  <script src="./js/owner.js?v=4.8.0"></script>
+  <script src="./js/app.js?v=4.8.0"></script>
 </body>
 </html>

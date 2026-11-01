@@ -699,7 +699,15 @@ out center tags qt;`;
       ? `<p style="margin:0 0 8px"><strong>Pochi ${KIND_PLURAL[wantedKind()] || 'B&B'} entro ${km(state.radius)} km: mostro gli alloggi entro ${km(state.lodgingRadius)} km.</strong></p>` : '';
     const b = `https://www.booking.com/searchresults.it.html?ss=${encodeURIComponent(city)}`;
     const a = `https://www.airbnb.it/s/${encodeURIComponent(city)}/homes`;
-    return `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
+    const ownerCta = `<aside class="owner-cta owner-cta--inline">
+      <div class="owner-cta-text">
+        <div class="owner-cta-eyebrow">Sei il titolare di una struttura${city ? ' a ' + escapeHtml(city) : ''}?</div>
+        <div class="owner-cta-title" style="font-size:22px">Registrala gratis e fai conoscere il tuo <em>B&amp;B</em></div>
+        <p class="owner-cta-note">Camere e prezzi a notte, in cima ai risultati. Nessuna commissione.</p>
+      </div>
+      <button class="owner-cta-btn" data-owner-register>Registrati gratis</button>
+    </aside>`;
+    return ownerCta + `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
       ${widened}
       <p style="margin:0 0 10px">Qui trovi le strutture registrate su OpenStreetMap. Per vedere <strong>tutti</strong> gli alloggi di ${escapeHtml(city)} con prezzi e disponibilit\u00E0:</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">

@@ -82,7 +82,12 @@
     return panel;
   }
 
-  function openPanel()  { ensurePanel().classList.add('is-open'); document.body.style.overflow = 'hidden'; renderRouter(); }
+  function openPanel(mode) {
+    ensurePanel().classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+    if (mode === 'register' && !Store.currentUser()) renderAuthView('register');
+    else renderRouter();
+  }
   function closePanel() {
     const p = $('#ownerPanel'); if (p) p.classList.remove('is-open');
     document.body.style.overflow = '';
@@ -99,7 +104,7 @@
           <h2 class="owner-title">${isLogin ? 'Accedi al tuo pannello' : 'Registra la tua attivit\u00E0'}</h2>
           <p class="owner-sub">${isLogin
             ? 'Entra per gestire menu, prezzi e orari del tuo locale.'
-            : '<strong>Gratis per sempre.</strong> Nessuna commissione, nessun abbonamento. I tuoi piatti saranno visibili nella ricerca di RistoApp.'}</p>
+            : '<strong>Gratis per sempre.</strong> Nessuna commissione, nessun abbonamento. Il tuo B&amp;B, agriturismo o ristorante comparir\u00E0 in cima alle ricerche di RistoApp in tutta Italia.<br><br><strong>1.</strong> Crea l\u2019account qui sotto &nbsp; <strong>2.</strong> Inserisci la struttura con camere e prezzi &nbsp; <strong>3.</strong> Pubblica'}</p>
         </div>
         <button class="modal-close" id="ownerCloseBtn" aria-label="Chiudi">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -113,7 +118,7 @@
           </label>` : ''}
         <label class="form-field">
           <span>Email</span>
-          <input type="email" name="email" required placeholder="email@ristoratore.it" autocomplete="email" />
+          <input type="email" name="email" required placeholder="email@tuastruttura.it" autocomplete="email" />
         </label>
         <label class="form-field">
           <span>Password ${!isLogin ? '<em>(min 6 caratteri)</em>' : ''}</span>
@@ -128,9 +133,9 @@
             : `Hai gi\u00E0 un account? <a href="#" id="switchAuth">Accedi</a>`}
         </p>
         <p class="auth-disclaimer">
-          <strong>Backend condiviso attivo.</strong> Una volta registrato il tuo locale
-          con menu e prezzi, sar\u00E0 visibile a tutti gli utenti di RistoApp in Italia.
-          La password \u00E8 gestita in modo sicuro da Firebase Authentication.
+          <strong>Come funziona.</strong> Dopo la registrazione inserisci la tua struttura
+          (B&amp;B, agriturismo, ristorante...) con prezzi e orari: sar\u00E0 subito visibile a tutti
+          gli utenti di RistoApp in Italia. La password \u00E8 gestita in modo sicuro da Firebase Authentication.
         </p>
       </form>`;
 
@@ -435,7 +440,15 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('ownerBtn');
-    if (btn) btn.onclick = openPanel;
+    if (btn) btn.onclick = () => openPanel('register');
+    // Ogni bottone "Registrati gratis" (anche quelli creati dopo, nei risultati)
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('[data-owner-register]')) { e.preventDefault(); openPanel('register'); }
+    });
+    // Link diretto: .../RISTOAPP/#registrati apre subito la registrazione
+    const openFromHash = () => { if (/^#registra/i.test(location.hash)) openPanel('register'); };
+    window.addEventListener('hashchange', openFromHash);
+    Promise.resolve(Store.authReady).then(openFromHash);
     document.addEventListener('keydown', (e) => {
       const p = document.getElementById('ownerPanel');
       if (e.key === 'Escape' && p && p.classList.contains('is-open')) closePanel();
