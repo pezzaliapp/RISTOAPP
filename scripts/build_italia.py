@@ -2,7 +2,7 @@
 """
 RISTOAPP - Costruisce i dati di TUTTA ITALIA dall'estratto OpenStreetMap.
 
-Input : file .osm.pbf gia' filtrato con osmium-tool (amenity + place)
+Input : file .osm.pbf gia' filtrato con osmium-tool (amenity + tourism=guest_house + place)
 Output: data/tiles/<lat10>_<lng10>.json   locali e localita' per quadrante 0.1 x 0.1 gradi
         data/tiles/index.json             elenco quadranti disponibili
         data/places/<lettera>.json        localita' per la ricerca per nome
@@ -27,7 +27,8 @@ AMENITIES = {"restaurant", "fast_food", "pub", "bar", "cafe",
              "biergarten", "food_court", "ice_cream"}
 PLACE_RANK = {"city": 1, "town": 2, "suburb": 3, "village": 3, "quarter": 4, "hamlet": 5}
 # Tag extra mostrati nella scheda "Altre informazioni"
-EXTRA_TAGS = ["brand", "capacity", "reservation", "smoking", "internet_access",
+EXTRA_TAGS = ["stars", "rooms", "beds", "guest_house", "check_in", "check_out",
+              "brand", "capacity", "reservation", "smoking", "internet_access",
               "air_conditioning", "diet:halal", "diet:kosher", "drive_through",
               "level", "description", "email", "contact:email"]
 TILE = 10  # 10 = quadranti da 0.1 gradi (circa 11 x 8 km)
@@ -49,14 +50,24 @@ def bucket(name):
     return c if "a" <= c <= "z" else "_"
 
 
-def restaurant(osm_id, tags, lat, lng):
+def category(tags):
+    """Categoria del locale: amenity per la ristorazione, 'guest_house' per i B&B."""
+    amenity = tags.get("amenity")
+    if amenity in AMENITIES:
+        return amenity
+    if tags.get("tourism") == "guest_house":
+        return "guest_house"
+    return None
+
+
+def restaurant(osm_id, tags, lat, lng, cat):
     t = dict(tags)
     street = " ".join(x for x in [t.get("addr:street"), t.get("addr:housenumber")] if x)
     city = " ".join(x for x in [t.get("addr:postcode"), t.get("addr:city")] if x)
     r = {
         "id": osm_id,
         "name": t["name"],
-        "amenity": t["amenity"],
+        "amenity": cat,
         "lat": round(lat, 6),
         "lng": round(lng, 6),
         "cuisine": t.get("cuisine", ""),
@@ -95,7 +106,7 @@ def main():
         name = tags.get("name")
         if not name:
             continue
-        amenity = tags.get("amenity")
+        cat = category(tags)
         place = tags.get("place")
 
         if obj.is_node():
@@ -104,7 +115,7 @@ def main():
             lat, lng = obj.location.lat, obj.location.lon
             osm_id = f"node/{obj.id}"
         elif obj.is_way():
-            if amenity not in AMENITIES:
+            if not cat:
                 continue
             pts = [(n.location.lat, n.location.lon) for n in obj.nodes if n.location.valid()]
             if not pts:
@@ -117,8 +128,8 @@ def main():
         else:
             continue
 
-        if amenity in AMENITIES:
-            tile(lat, lng)["items"].append(restaurant(osm_id, tags, lat, lng))
+        if cat:
+            tile(lat, lng)["items"].append(restaurant(osm_id, tags, lat, lng, cat))
             n_rest += 1
         elif obj.is_node() and place in PLACE_RANK:
             rank = PLACE_RANK[place]

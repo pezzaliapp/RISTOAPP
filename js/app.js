@@ -112,8 +112,9 @@
   // -------------- OVERPASS --------------------------------
   function buildOverpassQuery(lat, lng, radius) {
     const amenities = 'restaurant|fast_food|pub|bar|cafe|biergarten|food_court|ice_cream';
+    const around = `(around:${radius},${lat.toFixed(5)},${lng.toFixed(5)})`;
     return `[out:json][timeout:20];
-nwr["amenity"~"^(${amenities})$"]["name"](around:${radius},${lat.toFixed(5)},${lng.toFixed(5)});
+(nwr["amenity"~"^(${amenities})$"]["name"]${around};nwr["tourism"="guest_house"]["name"]${around};);
 out center tags qt;`;
   }
 
@@ -319,7 +320,7 @@ out center tags qt;`;
     return {
       id: el.type + '/' + el.id,
       name: tags.name,
-      amenity: tags.amenity,
+      amenity: tags.tourism === 'guest_house' && !CFG.amenityLabels[tags.amenity] ? 'guest_house' : tags.amenity,
       cuisine: tags.cuisine || '',
       lat, lng,
       address: addressParts.join(', ') || '',
@@ -341,9 +342,15 @@ out center tags qt;`;
   }
 
   // -------------- RICERCA / FILTRI ------------------------
+  const LODGING_RE = /\b(b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\w*|alloggi\w*|dormire|pernott\w*|guest ?house|camer[ae])\b/i;
+  function isLodgingQuery(q) { return !!q && LODGING_RE.test(q); }
+
   function matchesQuery(r, query) {
     if (!query) return true;
     const nq = normalize(query);
+
+    // Ricerca generica di alloggi: tutti i B&B corrispondono
+    if (r.amenity === 'guest_house' && isLodgingQuery(query)) return true;
 
     // 0) match sui piatti del menu (ristoratori registrati)
     if (r.userGenerated && Array.isArray(r.menu) && r.menu.length) {
@@ -375,9 +382,13 @@ out center tags qt;`;
     list.forEach(r => { delete r._dishMatch; });
     let res = list.slice();
 
-    // Filtro amenity
+    // Filtro tipo. "Tutti" = dove mangiare; i B&B compaiono col filtro
+    // B&B oppure cercando "b&b", "dormire", "affittacamere"...
+    const wantsLodging = isLodgingQuery(state.query);
     if (state.amenityFilter !== 'all') {
       res = res.filter(r => r.amenity === state.amenityFilter);
+    } else if (!wantsLodging) {
+      res = res.filter(r => r.amenity !== 'guest_house');
     }
 
     // Filtro query
@@ -434,6 +445,9 @@ out center tags qt;`;
       googleSearch: `https://www.google.com/search?q=${qWithCity}+menu+prezzi`,
       googleMenu: `https://www.google.com/search?q=${qWithCity}+menu`,
       tripadvisor: `https://www.tripadvisor.it/Search?q=${qWithCity}`,
+      booking: `https://www.booking.com/searchresults.it.html?ss=${qWithCity}`,
+      airbnb: `https://www.airbnb.it/s/${encodeURIComponent(state.cityName)}/homes`,
+      googleHotel: `https://www.google.com/search?q=${qWithCity}+prezzi+camere`,
     };
     return links;
   }
@@ -576,8 +590,23 @@ out center tags qt;`;
       ? `<a class="btn-outline" href="${links.call}">\u260E Chiama</a>`
       : '';
 
+    const isBnb = r.amenity === 'guest_house';
+    const stars = /^\d$/.test(r.rawTags?.stars || '') ? ' ' + '\u2605'.repeat(+r.rawTags.stars) : '';
+
     // Deep link portali (sempre visibili come riga principale)
-    const portalBtns = `
+    const portalBtns = isBnb ? `
+      <a class="portal-btn" href="${links.booking}" target="_blank" rel="noopener" title="Cerca su Booking.com">
+        <span class="portal-name">Booking</span>
+      </a>
+      <a class="portal-btn" href="${links.airbnb}" target="_blank" rel="noopener" title="Alloggi in zona su Airbnb">
+        <span class="portal-name">Airbnb</span>
+      </a>
+      <a class="portal-btn" href="${links.tripadvisor}" target="_blank" rel="noopener" title="Cerca su TripAdvisor">
+        <span class="portal-name">TripAdvisor</span>
+      </a>
+      <a class="portal-btn" href="${links.googleHotel}" target="_blank" rel="noopener" title="Prezzi su Google">
+        <span class="portal-name">Prezzi</span>
+      </a>` : `
       <a class="portal-btn" href="${links.justEat}" target="_blank" rel="noopener" title="Cerca su JustEat">
         <span class="portal-name">JustEat</span>
       </a>
@@ -601,7 +630,7 @@ out center tags qt;`;
           <div>
             <h3 class="card-title">${escapeHtml(r.name)}</h3>
             <div class="card-type">
-              ${escapeHtml(r.type || amenityLabel)}${cuisineLabel && !r.userGenerated ? ' \u00B7 ' + escapeHtml(cuisineLabel) : ''}
+              ${escapeHtml(r.type || amenityLabel)}${stars}${cuisineLabel && !r.userGenerated && !isBnb ? ' \u00B7 ' + escapeHtml(cuisineLabel) : ''}
             </div>
           </div>
           ${r._dishMatch ? `
@@ -731,7 +760,17 @@ out center tags qt;`;
           <p style="color:var(--c-muted)">Non disponibili su OpenStreetMap. Verifica chiamando il locale o su Google Maps.</p>
         </div>`)}
 
-        ${r.userGenerated ? '' : `
+        ${r.amenity === 'guest_house' ? `
+        <div class="modal-section">
+          <h4>Prezzi e disponibilit\u00E0</h4>
+          <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">RistoApp non gestisce prenotazioni: verifica prezzi e disponibilit\u00E0 sui portali o contattando direttamente la struttura.</p>
+          <div class="portals-grid">
+            <a class="portal-btn lg" href="${links.booking}" target="_blank" rel="noopener">\uD83D\uDECF\uFE0F Booking.com</a>
+            <a class="portal-btn lg" href="${links.airbnb}" target="_blank" rel="noopener">\uD83C\uDFE0 Airbnb in zona</a>
+            <a class="portal-btn lg" href="${links.tripadvisor}" target="_blank" rel="noopener">\u2728 TripAdvisor</a>
+            <a class="portal-btn lg" href="${links.googleHotel}" target="_blank" rel="noopener">\uD83D\uDD0D Prezzi su Google</a>
+          </div>
+        </div>` : r.userGenerated ? '' : `
         <div class="modal-section">
           <h4>Dove vedere menu e prezzi</h4>
           <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">Per scelta \u2014 e per rispetto delle piattaforme \u2014 <strong>RistoApp non memorizza i prezzi</strong>. Clicca un portale per vedere menu e prezzi aggiornati del ristorante (se presente):</p>
