@@ -640,7 +640,7 @@ out center tags qt;`;
     countEl.textContent = `${filtered.length} ${filtered.length === 1 ? 'locale trovato' : 'locali trovati'}`;
 
     if (!filtered.length) {
-      listEl.innerHTML = `<div class="empty">
+      listEl.innerHTML = lodgingBannerHtml() + `<div class="empty">
         <div class="empty-mark">non pervenuto</div>
         <p><strong>Nessun locale trovato</strong></p>
         <p>Prova a allargare il raggio, a cambiare il termine cercato o a selezionare "Tutti i locali".</p>

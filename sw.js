@@ -5,7 +5,7 @@
  *  il refresh degli utenti.
  * ============================================================ */
 
-const CACHE_NAME = 'ristoapp-v4.4.0';
+const CACHE_NAME = 'ristoapp-v4.5.0';
 const ASSETS = [
   './',
   './index.html',
@@ -56,14 +56,16 @@ self.addEventListener('fetch', (event) => {
   // Asset same-origin: network-first (cos\u00EC gli aggiornamenti arrivano
   // subito), con la cache come riserva quando si \u00E8 offline.
   if (url.origin === self.location.origin) {
+    // cache: 'no-cache' = chiede sempre al server se il file e' cambiato
+    // (evita di mescolare pagina nuova e programma vecchio)
     event.respondWith(
-      fetch(request).then(resp => {
+      fetch(request, { cache: 'no-cache' }).then(resp => {
         if (resp.ok) {
           const clone = resp.clone();
           caches.open(CACHE_NAME).then(c => c.put(request, clone));
         }
         return resp;
-      }).catch(() => caches.match(request).then(c => c || caches.match('./index.html')))
+      }).catch(() => caches.match(request, { ignoreSearch: true }).then(c => c || caches.match('./index.html')))
     );
   }
 });
