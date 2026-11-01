@@ -45,11 +45,12 @@ jobs:
             -o italy.osm.pbf https://download.geofabrik.de/europe/italy-latest.osm.pbf
           ls -lh italy.osm.pbf
 
-      - name: Filtra locali, B&B e localita'
+      - name: Filtra locali, B&B, parcheggi e localita'
         run: |
           osmium tags-filter italy.osm.pbf \
             nwr/amenity=restaurant,fast_food,pub,bar,cafe,biergarten,food_court,ice_cream \
             nwr/tourism=guest_house \
+            nw/amenity=parking \
             n/place=city,town,village,suburb,quarter,hamlet \
             -o filtered.osm.pbf --overwrite
           ls -lh filtered.osm.pbf

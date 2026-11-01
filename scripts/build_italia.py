@@ -6,6 +6,7 @@ Input : file .osm.pbf gia' filtrato con osmium-tool (amenity + tourism=guest_hou
 Output: data/tiles/<lat10>_<lng10>.json   locali e localita' per quadrante 0.1 x 0.1 gradi
         data/tiles/index.json             elenco quadranti disponibili
         data/places/<lettera>.json        localita' per la ricerca per nome
+        data/parking/<lat10>_<lng10>.json parcheggi pubblici (caricati solo per i B&B)
 
 I telefoni scaricano questi file dal sito stesso dell'app: nessuna
 dipendenza dai server pubblici di OpenStreetMap.
@@ -31,6 +32,7 @@ EXTRA_TAGS = ["stars", "rooms", "beds", "guest_house", "check_in", "check_out",
               "brand", "capacity", "reservation", "smoking", "internet_access",
               "air_conditioning", "diet:halal", "diet:kosher", "drive_through",
               "level", "description", "email", "contact:email"]
+PARKING_SKIP_ACCESS = {"private", "no", "customers", "permit", "delivery", "residents"}
 TILE = 10  # 10 = quadranti da 0.1 gradi (circa 11 x 8 km)
 
 
@@ -96,7 +98,8 @@ def main():
     out = sys.argv[2] if len(sys.argv) > 2 else "data"
     tiles = {}     # key -> {"items": [], "places": []}
     places = {}    # lettera -> [[nome, lat, lng, rank, provincia]]
-    n_rest = n_place = 0
+    parking = {}   # key -> [[lat, lng, nome, fee, tipo, posti]]
+    n_rest = n_place = n_park = 0
 
     def tile(lat, lng):
         return tiles.setdefault(tile_key(lat, lng), {"items": [], "places": []})
@@ -104,9 +107,13 @@ def main():
     for obj in osmium.FileProcessor(src).with_locations():
         tags = obj.tags
         name = tags.get("name")
-        if not name:
+        is_parking = tags.get("amenity") == "parking"
+        if is_parking:
+            if tags.get("access") in PARKING_SKIP_ACCESS or obj.is_relation():
+                continue
+        elif not name:
             continue
-        cat = category(tags)
+        cat = None if is_parking else category(tags)
         place = tags.get("place")
 
         if obj.is_node():
@@ -115,7 +122,7 @@ def main():
             lat, lng = obj.location.lat, obj.location.lon
             osm_id = f"node/{obj.id}"
         elif obj.is_way():
-            if not cat:
+            if not cat and not is_parking:
                 continue
             pts = [(n.location.lat, n.location.lon) for n in obj.nodes if n.location.valid()]
             if not pts:
@@ -128,7 +135,13 @@ def main():
         else:
             continue
 
-        if cat:
+        if is_parking:
+            parking.setdefault(tile_key(lat, lng), []).append([
+                round(lat, 5), round(lng, 5), name or "",
+                tags.get("fee", ""), tags.get("parking", ""), tags.get("capacity", ""),
+            ])
+            n_park += 1
+        elif cat:
             tile(lat, lng)["items"].append(restaurant(osm_id, tags, lat, lng, cat))
             n_rest += 1
         elif obj.is_node() and place in PLACE_RANK:
@@ -144,7 +157,7 @@ def main():
         sys.exit(f"Solo {n_rest} locali: estratto incompleto, tengo i dati precedenti.")
 
     # Scrittura (cartelle ricreate da zero: niente quadranti vecchi)
-    for sub in ("tiles", "places"):
+    for sub in ("tiles", "places", "parking"):
         shutil.rmtree(os.path.join(out, sub), ignore_errors=True)
         os.makedirs(os.path.join(out, sub))
 
@@ -166,12 +179,17 @@ def main():
             "tiles": dict(sorted(index.items())),
         }, f, separators=(",", ":"))
 
+    for key, entries in parking.items():
+        entries.sort()
+        with open(os.path.join(out, "parking", f"{key}.json"), "w", encoding="utf-8") as f:
+            json.dump(entries, f, ensure_ascii=False, separators=(",", ":"))
+
     for letter, entries in places.items():
         entries.sort(key=lambda e: (e[3], e[0]))
         with open(os.path.join(out, "places", f"{letter}.json"), "w", encoding="utf-8") as f:
             json.dump(entries, f, ensure_ascii=False, separators=(",", ":"))
 
-    print(f"Locali: {n_rest}  Localita': {n_place}  Quadranti: {len(index)}")
+    print(f"Locali: {n_rest}  Localita': {n_place}  Parcheggi: {n_park}  Quadranti: {len(index)}")
 
 
 if __name__ == "__main__":

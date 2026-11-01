@@ -221,21 +221,26 @@ out center tags qt;`;
 
   // Restituisce i dati dei quadranti che coprono il cerchio, oppure null
   // se la zona e' fuori dall'Italia o i dati non sono (ancora) pubblicati.
-  async function loadTilesAround(origin, radius) {
-    const idx = await loadTileIndex();
-    if (!idx || !idx.tiles) return null;
+  // Chiavi dei quadranti che coprono il cerchio; null se fuori Italia
+  function tileKeysAround(idx, origin, radius) {
     const T = idx.tile || 10;
     const dLat = radius / 111320;
     const dLng = radius / (111320 * Math.cos(origin.lat * Math.PI / 180));
     const [la0, lo0, la1, lo1] = idx.bbox;
     const a0 = Math.floor((origin.lat - dLat) * T), a1 = Math.floor((origin.lat + dLat) * T);
     const b0 = Math.floor((origin.lng - dLng) * T), b1 = Math.floor((origin.lng + dLng) * T);
-    if (a1 < la0 || a0 > la1 || b1 < lo0 || b0 > lo1) return null; // fuori Italia
+    if (a1 < la0 || a0 > la1 || b1 < lo0 || b0 > lo1) return null;
     const keys = [];
-    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) {
-      const k = `${a}_${b}`;
-      if (k in idx.tiles) keys.push(k); // quadranti assenti = mare/nessun locale
-    }
+    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) keys.push(`${a}_${b}`);
+    return keys;
+  }
+
+  async function loadTilesAround(origin, radius) {
+    const idx = await loadTileIndex();
+    if (!idx || !idx.tiles) return null;
+    const all = tileKeysAround(idx, origin, radius);
+    if (!all) return null; // fuori Italia
+    const keys = all.filter(k => k in idx.tiles); // assenti = mare/nessun locale
     const tiles = await Promise.all(keys.map(loadTile));
     return {
       items: tiles.flatMap(t => t.items || []),
@@ -249,6 +254,63 @@ out center tags qt;`;
     return data.items
       .filter(r => haversine(origin, r) * 1000 <= radius)
       .map(expandItem);
+  }
+
+  // ---- Parcheggi pubblici vicino a un punto (per i B&B) ---------
+  const parkingCache = {};
+  function loadParkingTile(key) {
+    if (!parkingCache[key]) {
+      parkingCache[key] = fetch(`./data/parking/${key}.json`)
+        .then(r => r.ok ? r.json() : (r.status === 404 ? [] : Promise.reject(new Error('HTTP ' + r.status))))
+        .catch(e => { delete parkingCache[key]; throw e; });
+    }
+    return parkingCache[key];
+  }
+
+  async function findParkingNear(pos) {
+    let list = null;
+    const idx = await loadTileIndex();
+    const keys = idx && idx.bbox ? tileKeysAround(idx, pos, 1500) : null;
+    if (keys) {
+      const tiles = await Promise.all(keys.map(loadParkingTile));
+      list = tiles.flat().map(p => ({ lat: p[0], lng: p[1], name: p[2], fee: p[3], type: p[4], capacity: p[5] }));
+    } else {
+      // Dati del sito non disponibili: OpenStreetMap in diretta
+      const q = `[out:json][timeout:15];nwr["amenity"="parking"]["access"!~"^(private|no|customers|permit|residents)$"](around:1500,${pos.lat.toFixed(5)},${pos.lng.toFixed(5)});out center tags qt;`;
+      const json = await fetchOverpass(q);
+      list = json.elements.map(el => ({
+        lat: el.lat ?? el.center?.lat, lng: el.lon ?? el.center?.lon,
+        name: el.tags?.name || '', fee: el.tags?.fee || '', type: el.tags?.parking || '', capacity: el.tags?.capacity || '',
+      })).filter(p => p.lat && p.lng);
+    }
+    list.forEach(p => { p.distance = haversine(pos, p) * 1000; });
+    const sorted = list.filter(p => p.distance <= 1500).sort((a, b) => a.distance - b.distance);
+    const near = sorted.filter(p => p.distance <= 800);
+    return (near.length >= 2 ? near : sorted).slice(0, 5);
+  }
+
+  const PARKING_TYPES = {
+    surface: 'a raso', underground: 'sotterraneo', 'multi-storey': 'multipiano',
+    street_side: 'lungo la strada', lane: 'sulla carreggiata', rooftop: 'sul tetto',
+    carports: 'coperto', garage_boxes: 'box',
+  };
+
+  function parkingHtml(from, list) {
+    if (!list.length) return `<p style="color:var(--c-muted)">Nessun parcheggio pubblico mappato entro 1,5 km. Chiedi alla struttura se dispone di posti auto.</p>`;
+    return `<ul class="menu-list">${list.map(p => {
+      const type = PARKING_TYPES[p.type] || '';
+      const title = p.name || ('Parcheggio' + (type ? ' ' + type : ''));
+      const fee = p.fee === 'no' ? 'gratuito' : p.fee === 'yes' ? 'a pagamento' : 'tariffa non indicata';
+      const walkMin = Math.max(1, Math.round(p.distance * 1.3 / 80));
+      const dist = p.distance < 1000 ? Math.round(p.distance) + ' m' : (p.distance / 1000).toFixed(1).replace('.', ',') + ' km';
+      const details = [p.name && type ? type : '', fee, /^\d+$/.test(p.capacity) ? p.capacity + ' posti' : ''].filter(Boolean).join(' \u00B7 ');
+      const nav = `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${p.lat},${p.lng}&travelmode=driving`;
+      return `<li style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <span><span class="dish-name">\uD83C\uDD7F\uFE0F ${escapeHtml(title)}</span><br>
+          <small style="color:var(--c-muted)">${escapeHtml(details)} \u00B7 ${dist}, circa ${walkMin} min a piedi</small></span>
+        <a class="btn-outline" style="flex:0 0 auto;width:auto;padding:6px 14px" href="${nav}" target="_blank" rel="noopener">Percorso</a>
+      </li>`;
+    }).join('')}</ul>`;
   }
 
   // Nome della zona per "Posizione": localita' piu' vicina nei dati del sito
@@ -655,7 +717,7 @@ out center tags qt;`;
           ${callBtn}
           <button class="btn-outline" data-details="${escapeHtml(r.id)}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></svg>
-            ${r.userGenerated ? 'Menu completo' : 'Info'}
+            ${r.userGenerated ? 'Menu completo' : isBnb ? 'Info e parcheggi' : 'Info'}
           </button>
         </div>
       </article>`;
@@ -762,6 +824,10 @@ out center tags qt;`;
 
         ${r.amenity === 'guest_house' ? `
         <div class="modal-section">
+          <h4>Parcheggi vicini</h4>
+          <div id="parkingList" data-for="${escapeHtml(r.id)}"><p style="color:var(--c-muted)">Cerco i parcheggi in zona...</p></div>
+        </div>
+        <div class="modal-section">
           <h4>Prezzi e disponibilit\u00E0</h4>
           <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">RistoApp non gestisce prenotazioni: verifica prezzi e disponibilit\u00E0 sui portali o contattando direttamente la struttura.</p>
           <div class="portals-grid">
@@ -800,6 +866,17 @@ out center tags qt;`;
       </div>`;
     $('#modalBackdrop').classList.add('is-open');
     $('#modalCloseBtn').addEventListener('click', closeModal);
+
+    if (r.amenity === 'guest_house') {
+      const from = { lat: r.lat, lng: r.lng };
+      findParkingNear(from)
+        .then(list => parkingHtml(from, list))
+        .catch(() => `<p style="color:var(--c-muted)">Parcheggi non disponibili al momento. Riprova tra poco.</p>`)
+        .then(html => {
+          const el = $('#parkingList');
+          if (el && el.dataset.for === r.id) el.innerHTML = html; // il dettaglio \u00E8 ancora aperto
+        });
+    }
   }
 
   function closeModal() { $('#modalBackdrop').classList.remove('is-open'); }
