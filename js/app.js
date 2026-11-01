@@ -753,8 +753,27 @@ out center tags qt;`;
     $('#installBannerBtn').addEventListener('click', promptInstall);
 
     // Service worker
+    // Aggiornamento automatico: controlla se c'è una nuova versione
+    // all'apertura e ogni volta che l'app torna in primo piano; quando
+    // il nuovo service worker prende il controllo, ricarica la pagina.
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+      const hadController = !!navigator.serviceWorker.controller;
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || reloading) return; // primo avvio: niente reload
+        reloading = true;
+        location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+          .then(reg => {
+            reg.update().catch(()=>{});
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible') reg.update().catch(()=>{});
+            });
+          })
+          .catch(()=>{});
+      });
     }
 
     // Prima ricerca automatica sulla citt\u00E0 di default
