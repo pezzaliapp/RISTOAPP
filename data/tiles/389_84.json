@@ -1,1 +1,1 @@
-{"items":[{"id":"node/9869058144","name":"Bresu","amenity":"cafe","lat":38.982644,"lng":8.442456,"outdoor_seating":"only"}],"places":[["La Fazenda",38.95952,8.41367,5],["Peonia Rosa",38.96531,8.42811,5]]}
+{"items":[{"id":"node/9869058144","name":"Bresu","amenity":"cafe","lat":38.982644,"lng":8.442456,"outdoor_seating":"only"},{"id":"way/278404571","name":"Hotel Maladroxia","amenity":"hotel","lat":38.998277,"lng":8.445899}],"places":[["La Fazenda",38.95952,8.41367,5],["Peonia Rosa",38.96531,8.42811,5]]}

@@ -1,1 +1,1 @@
-{"items":[],"places":[["Anzi",40.51662,15.92457,3],["San Donato",40.52194,15.90054,5],["Trivigno",40.58102,15.98987,3]]}
+{"items":[{"id":"way/1368165875","name":"Foresteria de San Leo","amenity":"hotel","lat":40.551492,"lng":15.983397,"address":"C.da San Leo 11, 85018 Trivigno","rawTags":{"smoking":"no"}}],"places":[["Anzi",40.51662,15.92457,3],["San Donato",40.52194,15.90054,5],["Trivigno",40.58102,15.98987,3]]}

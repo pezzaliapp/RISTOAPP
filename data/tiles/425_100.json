@@ -1,1 +1,1 @@
-{"items":[{"id":"node/2361780252","name":"Cooperativa San Giacomo","amenity":"restaurant","lat":42.587551,"lng":10.096494}],"places":[["Pianosa",42.58726,10.09855,3]]}
+{"items":[{"id":"node/2361780252","name":"Cooperativa San Giacomo","amenity":"restaurant","lat":42.587551,"lng":10.096494},{"id":"way/153525933","name":"Albergo Milena","amenity":"hotel","lat":42.587534,"lng":10.09877,"address":"57034 Pianosa","phone":"+39 345 985 3862","website":"https://www.albergopianosa.it/","rawTags":{"email":"info@albergopianosa.it"}}],"places":[["Pianosa",42.58726,10.09855,3]]}
