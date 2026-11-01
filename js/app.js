@@ -148,10 +148,47 @@ out center tags qt;`;
         }
       }
     }
-    throw new Error('I server di OpenStreetMap sono momentaneamente sovraccarichi (' + (lastErr?.message || 'errore di rete') + ')');
+    throw new Error('I server di OpenStreetMap non rispondono da questa rete (' + (lastErr?.message || 'errore di rete') + '). Scegli una citt\u00E0 dall\u2019elenco: quelle sono sempre disponibili.');
+  }
+
+  // ---- Dati OSM pre-scaricati ogni notte da GitHub Actions (data/osm/).
+  // Stanno sullo stesso sito dell'app: nessuna rete o operatore li blocca.
+  let staticIndexPromise = null;
+  function loadStaticIndex() {
+    if (!staticIndexPromise) {
+      staticIndexPromise = fetch('./data/osm/index.json', { cache: 'no-cache' })
+        .then(r => r.ok ? r.json() : { cities: [] })
+        .catch(() => { staticIndexPromise = null; return { cities: [] }; });
+    }
+    return staticIndexPromise;
+  }
+
+  async function loadStaticRestaurants(origin, radius) {
+    const index = await loadStaticIndex();
+    // Una citta' "copre" la ricerca se il cerchio cercato sta tutto
+    // dentro il cerchio scaricato (tolleranza 300 m).
+    const covering = (index.cities || [])
+      .map(c => ({ c, d: haversine(origin, c) * 1000 }))
+      .filter(({ c, d }) => d + radius <= c.radius + 300)
+      .sort((a, b) => a.d - b.d)[0];
+    if (!covering) return null;
+    const resp = await fetch('./data/osm/' + covering.c.file);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    return (data.items || []).filter(r => {
+      const d = haversine(origin, { lat: r.lat, lng: r.lng });
+      return d != null && d * 1000 <= radius;
+    });
   }
 
   async function loadOsmRestaurants(origin, radius) {
+    try {
+      const list = await loadStaticRestaurants(origin, radius);
+      if (list) return { list, stale: false };
+    } catch (e) {
+      console.warn('Dati OSM locali non disponibili:', e);
+    }
+
     const key = osmCacheKey(origin.lat, origin.lng, radius);
     const fresh = osmCacheGet(key);
     if (fresh) return { list: fresh, stale: false };
