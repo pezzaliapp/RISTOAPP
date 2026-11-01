@@ -58,24 +58,55 @@
   }
 
   // -------------- GEOCODING -------------------------------
-  // Se la citt\u00E0 scritta dall'utente \u00E8 nella lista preset uso quelle coordinate.
-  // Altrimenti interrogo Nominatim (OSM).
+  // 1) citta' preset  2) localita' italiane salvate sul sito (data/places)
+  // 3) solo come ultima risorsa Nominatim (OSM in diretta).
+  const placesCache = {};
+  function loadPlacesBucket(letter) {
+    if (!placesCache[letter]) {
+      placesCache[letter] = fetch(`./data/places/${letter}.json`)
+        .then(r => r.ok ? r.json() : [])
+        .catch(() => { delete placesCache[letter]; return null; });
+    }
+    return placesCache[letter];
+  }
+
+  async function findPlaceLocal(cityName) {
+    const q = normalize(cityName.split(',')[0]);
+    if (!q) return null;
+    const c = q[0];
+    const letter = c >= 'a' && c <= 'z' ? c : '_';
+    const list = await loadPlacesBucket(letter);
+    if (!list || !list.length) return null;
+    // [nome, lat, lng, rango(1=citta'...5=frazione), provincia?]
+    const byRank = (a, b) => a[3] - b[3];
+    const exact = list.filter(p => normalize(p[0]) === q).sort(byRank);
+    const prefix = exact.length ? [] : list.filter(p => normalize(p[0]).startsWith(q)).sort(byRank);
+    const best = exact[0] || prefix[0];
+    return best ? { lat: best[1], lng: best[2], name: best[0] } : null;
+  }
+
   async function resolveCity(cityName) {
     const norm = normalize(cityName);
     const preset = CFG.cities.find(c => normalize(c.name) === norm);
     if (preset) return { lat: preset.lat, lng: preset.lng, name: preset.name };
 
-    // Nominatim
-    const url = `${CFG.nominatimEndpoint}?q=${encodeURIComponent(cityName + ', Italia')}&format=json&limit=1&countrycodes=it`;
-    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
-    if (!resp.ok) throw new Error('Impossibile trovare la localit\u00E0');
-    const arr = await resp.json();
-    if (!arr.length) throw new Error(`Localit\u00E0 non trovata: "${cityName}"`);
-    return {
-      lat: parseFloat(arr[0].lat),
-      lng: parseFloat(arr[0].lon),
-      name: arr[0].display_name.split(',')[0] || cityName,
-    };
+    const local = await findPlaceLocal(cityName);
+    if (local) return local;
+
+    // Nominatim (ultima risorsa)
+    try {
+      const url = `${CFG.nominatimEndpoint}?q=${encodeURIComponent(cityName + ', Italia')}&format=json&limit=1&countrycodes=it`;
+      const resp = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, 10000);
+      if (resp.ok) {
+        const arr = await resp.json();
+        if (arr.length) return {
+          lat: parseFloat(arr[0].lat),
+          lng: parseFloat(arr[0].lon),
+          name: arr[0].display_name.split(',')[0] || cityName,
+        };
+      }
+    } catch {}
+    throw new Error(`Località non trovata: "${cityName}". Controlla il nome (es. "Civitanova Marche").`);
   }
 
   // -------------- OVERPASS --------------------------------
@@ -148,37 +179,88 @@ out center tags qt;`;
         }
       }
     }
-    throw new Error('I server di OpenStreetMap non rispondono da questa rete (' + (lastErr?.message || 'errore di rete') + '). Scegli una citt\u00E0 dall\u2019elenco: quelle sono sempre disponibili.');
+    throw new Error('I server di OpenStreetMap non rispondono da questa rete (' + (lastErr?.message || 'errore di rete') + '). Riprova tra poco.');
   }
 
-  // ---- Dati OSM pre-scaricati ogni notte da GitHub Actions (data/osm/).
-  // Stanno sullo stesso sito dell'app: nessuna rete o operatore li blocca.
-  let staticIndexPromise = null;
-  function loadStaticIndex() {
-    if (!staticIndexPromise) {
-      staticIndexPromise = fetch('./data/osm/index.json', { cache: 'no-cache' })
-        .then(r => r.ok ? r.json() : { cities: [] })
-        .catch(() => { staticIndexPromise = null; return { cities: [] }; });
+  // ---- Dati di TUTTA ITALIA pre-scaricati da GitHub Actions (data/tiles/),
+  // in quadranti da 0.1 gradi. Stanno sullo stesso sito dell'app: nessuna
+  // rete o operatore li blocca e non dipendono dai server OSM pubblici.
+  let tileIndexPromise = null;
+  const tileCache = {};
+
+  function loadTileIndex() {
+    if (!tileIndexPromise) {
+      tileIndexPromise = fetch('./data/tiles/index.json', { cache: 'no-cache' })
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+        .then(idx => { if (!idx) tileIndexPromise = null; return idx; });
     }
-    return staticIndexPromise;
+    return tileIndexPromise;
+  }
+
+  function loadTile(key) {
+    if (!tileCache[key]) {
+      tileCache[key] = fetch(`./data/tiles/${key}.json`)
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .catch(e => { delete tileCache[key]; throw e; });
+    }
+    return tileCache[key];
+  }
+
+  const EMPTY_FIELDS = ['cuisine','address','phone','website','facebook','instagram',
+    'opening_hours','takeaway','delivery','outdoor_seating','wheelchair',
+    'vegetarian','vegan','gluten_free'];
+  function expandItem(r) {
+    const out = { ...r };
+    EMPTY_FIELDS.forEach(k => { if (out[k] == null) out[k] = ''; });
+    if (!out.payments) out.payments = [];
+    out.rawTags = { name: out.name, amenity: out.amenity, ...(out.rawTags || {}) };
+    return out;
+  }
+
+  // Restituisce i dati dei quadranti che coprono il cerchio, oppure null
+  // se la zona e' fuori dall'Italia o i dati non sono (ancora) pubblicati.
+  async function loadTilesAround(origin, radius) {
+    const idx = await loadTileIndex();
+    if (!idx || !idx.tiles) return null;
+    const T = idx.tile || 10;
+    const dLat = radius / 111320;
+    const dLng = radius / (111320 * Math.cos(origin.lat * Math.PI / 180));
+    const [la0, lo0, la1, lo1] = idx.bbox;
+    const a0 = Math.floor((origin.lat - dLat) * T), a1 = Math.floor((origin.lat + dLat) * T);
+    const b0 = Math.floor((origin.lng - dLng) * T), b1 = Math.floor((origin.lng + dLng) * T);
+    if (a1 < la0 || a0 > la1 || b1 < lo0 || b0 > lo1) return null; // fuori Italia
+    const keys = [];
+    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) {
+      const k = `${a}_${b}`;
+      if (k in idx.tiles) keys.push(k); // quadranti assenti = mare/nessun locale
+    }
+    const tiles = await Promise.all(keys.map(loadTile));
+    return {
+      items: tiles.flatMap(t => t.items || []),
+      places: tiles.flatMap(t => t.places || []),
+    };
   }
 
   async function loadStaticRestaurants(origin, radius) {
-    const index = await loadStaticIndex();
-    // Una citta' "copre" la ricerca se il cerchio cercato sta tutto
-    // dentro il cerchio scaricato (tolleranza 300 m).
-    const covering = (index.cities || [])
-      .map(c => ({ c, d: haversine(origin, c) * 1000 }))
-      .filter(({ c, d }) => d + radius <= c.radius + 300)
-      .sort((a, b) => a.d - b.d)[0];
-    if (!covering) return null;
-    const resp = await fetch('./data/osm/' + covering.c.file);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    return (data.items || []).filter(r => {
-      const d = haversine(origin, { lat: r.lat, lng: r.lng });
-      return d != null && d * 1000 <= radius;
-    });
+    const data = await loadTilesAround(origin, radius);
+    if (!data) return null;
+    return data.items
+      .filter(r => haversine(origin, r) * 1000 <= radius)
+      .map(expandItem);
+  }
+
+  // Nome della zona per "Posizione": localita' piu' vicina nei dati del sito
+  async function nearestPlaceName(pos) {
+    const data = await loadTilesAround(pos, 6000).catch(() => null);
+    if (!data || !data.places.length) return null;
+    let best = null, bestScore = Infinity;
+    for (const p of data.places) {
+      const d = haversine(pos, { lat: p[1], lng: p[2] });
+      const score = d * (p[3] <= 2 ? 0.5 : p[3] >= 5 ? 1.6 : 1); // preferisci citta'/paesi
+      if (score < bestScore) { bestScore = score; best = p; }
+    }
+    return best ? best[0] : null;
   }
 
   async function loadOsmRestaurants(origin, radius) {
@@ -701,14 +783,19 @@ out center tags qt;`;
       async pos => {
         state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         state.origin = state.userPos;
-        // Nominatim reverse per mostrare il nome della zona
-        try {
-          const rev = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${state.userPos.lat}&lon=${state.userPos.lng}&format=json&zoom=14&accept-language=it`);
-          const j = await rev.json();
-          const display = j.address?.city || j.address?.town || j.address?.village || j.address?.county || 'Posizione attuale';
+        // Nome della zona: prima dai dati del sito, poi Nominatim
+        let display = await nearestPlaceName(state.userPos);
+        if (!display) {
+          try {
+            const rev = await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?lat=${state.userPos.lat}&lon=${state.userPos.lng}&format=json&zoom=14&accept-language=it`, {}, 8000);
+            const j = await rev.json();
+            display = j.address?.city || j.address?.town || j.address?.village || j.address?.county;
+          } catch {}
+        }
+        if (display) {
           state.cityName = display;
           $('#cityInput').value = display;
-        } catch {}
+        }
         toast('Posizione rilevata. Cerco locali in zona...');
         search();
       },
