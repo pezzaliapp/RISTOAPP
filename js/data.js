@@ -57,11 +57,16 @@ const RISTOAPP_CONFIG = {
     ice_cream:  'Gelateria',
   },
 
+  // Istanze Overpass pubbliche con copertura mondiale (provate in ordine).
+  // NB: overpass.kumi.systems e overpass.private.coffee sono lo STESSO
+  // server (rinominato), quindi ne teniamo uno solo.
   overpassEndpoints: [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
     'https://overpass.private.coffee/api/interpreter',
   ],
+  overpassTimeoutMs: 20000,         // timeout per singolo server
+  osmCacheTtlMs: 24 * 60 * 60 * 1000, // cache risultati OSM: 24 ore
 
   nominatimEndpoint: 'https://nominatim.openstreetmap.org/search',
 

@@ -5,7 +5,7 @@
  *  il refresh degli utenti.
  * ============================================================ */
 
-const CACHE_NAME = 'ristoapp-v3.0.0';
+const CACHE_NAME = 'ristoapp-v3.0.1';
 const ASSETS = [
   './',
   './index.html',
@@ -53,14 +53,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Asset same-origin: cache-first
+  // Asset same-origin: network-first (cos\u00EC gli aggiornamenti arrivano
+  // subito), con la cache come riserva quando si \u00E8 offline.
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(request).then(cached => cached || fetch(request).then(resp => {
-        const clone = resp.clone();
-        caches.open(CACHE_NAME).then(c => c.put(request, clone));
+      fetch(request).then(resp => {
+        if (resp.ok) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(request, clone));
+        }
         return resp;
-      }).catch(() => caches.match('./index.html')))
+      }).catch(() => caches.match(request).then(c => c || caches.match('./index.html')))
     );
   }
 });

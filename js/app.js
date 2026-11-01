@@ -22,6 +22,7 @@
     restaurants: [],      // risultati caricati
     loading: false,
     error: null,
+    warning: null,
   };
 
   // Util DOM ------------------------------------------------
@@ -80,34 +81,104 @@
   // -------------- OVERPASS --------------------------------
   function buildOverpassQuery(lat, lng, radius) {
     const amenities = 'restaurant|fast_food|pub|bar|cafe|biergarten|food_court|ice_cream';
-    return `
-      [out:json][timeout:25];
-      (
-        node["amenity"~"^(${amenities})$"](around:${radius},${lat},${lng});
-        way["amenity"~"^(${amenities})$"](around:${radius},${lat},${lng});
-      );
-      out center tags;
-    `;
+    return `[out:json][timeout:20];
+nwr["amenity"~"^(${amenities})$"]["name"](around:${radius},${lat.toFixed(5)},${lng.toFixed(5)});
+out center tags qt;`;
+  }
+
+  // ---- Cache locale dei risultati OSM (riduce le query ai server pubblici)
+  function osmCacheKey(lat, lng, radius) {
+    return `ristoapp-osm:${lat.toFixed(3)},${lng.toFixed(3)},${radius}`;
+  }
+  function osmCacheGet(key, allowStale = false) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const { t, data } = JSON.parse(raw);
+      if (!allowStale && Date.now() - t > CFG.osmCacheTtlMs) return null;
+      return data;
+    } catch { return null; }
+  }
+  function osmCacheSet(key, data) {
+    try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), data })); }
+    catch {
+      // Storage pieno: elimina le vecchie cache OSM e riprova una volta
+      try {
+        Object.keys(localStorage).filter(k => k.startsWith('ristoapp-osm:'))
+          .forEach(k => localStorage.removeItem(k));
+        localStorage.setItem(key, JSON.stringify({ t: Date.now(), data }));
+      } catch {}
+    }
+  }
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  async function fetchWithTimeout(url, opts, ms) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try { return await fetch(url, { ...opts, signal: ctrl.signal }); }
+    finally { clearTimeout(timer); }
   }
 
   async function fetchOverpass(query) {
-    // Prova ogni endpoint in ordine finch\u00E9 uno risponde
+    // Due giri su tutti i server, con pausa tra un giro e l'altro:
+    // i server pubblici rispondono spesso 429/504 quando sono carichi
+    // (e in quel caso il browser mostra solo "Failed to fetch").
     let lastErr = null;
-    for (const endpoint of CFG.overpassEndpoints) {
-      try {
-        const resp = await fetch(endpoint, {
-          method: 'POST',
-          body: 'data=' + encodeURIComponent(query),
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        });
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        return await resp.json();
-      } catch (e) {
-        lastErr = e;
-        continue;
+    for (let round = 0; round < 2; round++) {
+      if (round > 0) await sleep(3000);
+      for (const endpoint of CFG.overpassEndpoints) {
+        try {
+          const resp = await fetchWithTimeout(endpoint, {
+            method: 'POST',
+            body: 'data=' + encodeURIComponent(query),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          }, CFG.overpassTimeoutMs || 20000);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const json = await resp.json();
+          if (!json || !Array.isArray(json.elements)) throw new Error('Risposta non valida');
+          // Overpass a volte risponde 200 ma con "remark" di timeout e 0 elementi
+          if (!json.elements.length && json.remark && /timeout|runtime error/i.test(json.remark)) {
+            throw new Error('Timeout server');
+          }
+          return json;
+        } catch (e) {
+          lastErr = e.name === 'AbortError' ? new Error('timeout') : e;
+          console.warn('Overpass KO:', endpoint, lastErr.message);
+        }
       }
     }
-    throw new Error('Tutti i server Overpass sono irraggiungibili: ' + (lastErr?.message || ''));
+    throw new Error('I server di OpenStreetMap sono momentaneamente sovraccarichi (' + (lastErr?.message || 'errore di rete') + ')');
+  }
+
+  async function loadOsmRestaurants(origin, radius) {
+    const key = osmCacheKey(origin.lat, origin.lng, radius);
+    const fresh = osmCacheGet(key);
+    if (fresh) return { list: fresh, stale: false };
+    try {
+      const osm = await fetchOverpass(buildOverpassQuery(origin.lat, origin.lng, radius));
+      const list = (osm.elements || []).map(normalizeElement).filter(Boolean);
+      osmCacheSet(key, list);
+      return { list, stale: false };
+    } catch (e) {
+      // Fallback: ultimo risultato salvato, anche se vecchio
+      const old = osmCacheGet(key, true);
+      if (old) return { list: old, stale: true };
+      throw e;
+    }
+  }
+
+  async function loadUserRestaurants(origin, radius) {
+    try {
+      const all = await (window.RistoStore?.allPublicRestaurants?.() || Promise.resolve([]));
+      return all.filter(r => {
+        const d = haversine(origin, { lat: r.lat, lng: r.lng });
+        return d != null && d * 1000 <= radius;
+      });
+    } catch (e) {
+      console.warn('Impossibile caricare ristoranti registrati:', e);
+      return [];
+    }
   }
 
   // Normalizza un elemento OSM in un oggetto ristorante coerente
@@ -181,6 +252,8 @@
   }
 
   function filterAndSort(list) {
+    // Azzera i match piatto della ricerca precedente
+    list.forEach(r => { delete r._dishMatch; });
     let res = list.slice();
 
     // Filtro amenity
@@ -247,13 +320,18 @@
   }
 
   // -------------- RICERCA PRINCIPALE ----------------------
+  let searchSeq = 0;      // per ignorare risposte di ricerche superate
+  let lastOsm = [];       // ultimi risultati OSM (per refresh rapido)
+
   async function search() {
     const cityInput = $('#cityInput').value.trim();
     const query = $('#queryInput').value.trim();
-    if (!cityInput) { toast('Scrivi una localit\u00E0 o usa "Posizione"'); return; }
+    if (!cityInput && !state.userPos) { toast('Scrivi una localit\u00E0 o usa "Posizione"'); return; }
 
+    const mySeq = ++searchSeq;
     setLoading(true);
     state.query = query;
+    state.warning = null;
     try {
       // Risolvi citt\u00E0 (se non stiamo usando GPS)
       if (!state.userPos) {
@@ -261,35 +339,42 @@
         state.origin = { lat: city.lat, lng: city.lng };
         state.cityName = city.name;
       }
-
-      // Query Overpass
       const origin = state.userPos || state.origin;
-      const oq = buildOverpassQuery(origin.lat, origin.lng, state.radius);
-      const osm = await fetchOverpass(oq);
-      const all = (osm.elements || [])
-        .map(normalizeElement)
-        .filter(Boolean);
 
-      // Merge con ristoranti user-generated (registrati dai ristoratori)
-      // Caricati da Firestore (backend condiviso Fase 2)
-      let userGen = [];
-      try {
-        const all = await (window.RistoStore?.allPublicRestaurants?.() || Promise.resolve([]));
-        userGen = all.filter(r => {
-          const d = haversine(origin, { lat: r.lat, lng: r.lng });
-          return d != null && d * 1000 <= state.radius;
-        });
-      } catch (e) {
-        console.warn('Impossibile caricare ristoranti registrati:', e);
+      // OSM e Firestore in parallelo
+      const [osmRes, userGen] = await Promise.all([
+        loadOsmRestaurants(origin, state.radius).catch(e => ({ error: e })),
+        loadUserRestaurants(origin, state.radius),
+      ]);
+      if (mySeq !== searchSeq) return; // nel frattempo \u00E8 partita un'altra ricerca
+
+      if (osmRes.error) {
+        lastOsm = [];
+        if (!userGen.length) throw osmRes.error;
+        state.warning = 'OpenStreetMap non risponde: mostro solo i locali registrati su RistoApp. Riprova tra poco per vedere gli altri.';
+      } else {
+        lastOsm = osmRes.list;
+        if (osmRes.stale) state.warning = 'OpenStreetMap non risponde: mostro gli ultimi risultati salvati.';
       }
 
-      state.restaurants = [...userGen, ...all];
+      state.restaurants = [...userGen, ...lastOsm];
       state.error = null;
     } catch (e) {
+      if (mySeq !== searchSeq) return;
       state.error = e.message || 'Errore durante la ricerca';
       state.restaurants = [];
     }
     setLoading(false);
+    renderResults();
+  }
+
+  // Ricarica SOLO i locali registrati (Firestore), senza interrogare di
+  // nuovo OpenStreetMap: usato dopo login/salvataggi del ristoratore.
+  async function refreshUserRestaurants() {
+    if (state.loading || state.error) return;
+    const origin = state.userPos || state.origin;
+    const userGen = await loadUserRestaurants(origin, state.radius);
+    state.restaurants = [...userGen, ...lastOsm];
     renderResults();
   }
 
@@ -335,7 +420,10 @@
       return;
     }
 
-    listEl.innerHTML = filtered.map((r, idx) => cardHtml(r, idx)).join('');
+    const warnHtml = state.warning
+      ? `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1"><p style="margin:0">${escapeHtml(state.warning)}</p></div>`
+      : '';
+    listEl.innerHTML = warnHtml + filtered.map((r, idx) => cardHtml(r, idx)).join('');
   }
 
   function cardHtml(r, idx) {
@@ -645,7 +733,7 @@
     });
     $('#radiusSelect').addEventListener('change', (e) => {
       state.radius = parseInt(e.target.value, 10) || CFG.defaultRadius;
-      if (state.restaurants.length) search();
+      search();
     });
 
     // Delegation card
@@ -674,9 +762,7 @@
 
     // Esposto per il modulo ristoratori: aggiorna la lista quando il
     // ristoratore salva/elimina un locale
-    window.refreshPublicResults = () => {
-      if (state.restaurants.length || !state.loading) search();
-    };
+    window.refreshPublicResults = () => { refreshUserRestaurants(); };
   }
 
   document.addEventListener('DOMContentLoaded', init);

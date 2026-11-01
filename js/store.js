@@ -31,7 +31,18 @@
   };
 
   if (typeof firebase === 'undefined') {
-    console.error('Firebase SDK non caricato. Verifica che gli script CDN siano in index.html PRIMA di store.js.');
+    console.error('Firebase SDK non caricato (rete o blocco pubblicit\u00E0).');
+    // Store "vuoto": la ricerca funziona lo stesso, l'area ristoratori
+    // mostra un errore chiaro invece di bloccarsi.
+    const offline = () => Promise.reject(new Error('Servizio account non raggiungibile. Controlla la connessione o disattiva il blocco pubblicit\u00E0 e ricarica la pagina.'));
+    window.RistoStore = {
+      authReady: Promise.resolve(),
+      register: offline, login: offline, logout: async () => {},
+      currentUser: () => null,
+      myRestaurants: async () => [], getRestaurant: async () => null,
+      saveRestaurant: offline, deleteRestaurant: offline,
+      allPublicRestaurants: async () => [],
+    };
     return;
   }
 
