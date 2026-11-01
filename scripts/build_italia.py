@@ -2,7 +2,7 @@
 """
 RISTOAPP - Costruisce i dati di TUTTA ITALIA dall'estratto OpenStreetMap.
 
-Input : file .osm.pbf gia' filtrato con osmium-tool (amenity + tourism=guest_house + place)
+Input : file .osm.pbf gia' filtrato con osmium-tool (amenity + tourism + parking + place)
 Output: data/tiles/<lat10>_<lng10>.json   locali e localita' per quadrante 0.1 x 0.1 gradi
         data/tiles/index.json             elenco quadranti disponibili
         data/places/<lettera>.json        localita' per la ricerca per nome
@@ -32,6 +32,9 @@ EXTRA_TAGS = ["stars", "rooms", "beds", "guest_house", "check_in", "check_out",
               "brand", "capacity", "reservation", "smoking", "internet_access",
               "air_conditioning", "diet:halal", "diet:kosher", "drive_through",
               "level", "description", "email", "contact:email"]
+# tourism=* -> categoria alloggio usata dall'app
+LODGING = {"guest_house": "guest_house", "hotel": "hotel", "motel": "hotel",
+           "hostel": "hostel", "apartment": "apartment", "chalet": "apartment"}
 PARKING_SKIP_ACCESS = {"private", "no", "customers", "permit", "delivery", "residents"}
 TILE = 10  # 10 = quadranti da 0.1 gradi (circa 11 x 8 km)
 
@@ -53,13 +56,11 @@ def bucket(name):
 
 
 def category(tags):
-    """Categoria del locale: amenity per la ristorazione, 'guest_house' per i B&B."""
+    """Categoria: amenity per la ristorazione, tipo di alloggio per tourism=*."""
     amenity = tags.get("amenity")
     if amenity in AMENITIES:
         return amenity
-    if tags.get("tourism") == "guest_house":
-        return "guest_house"
-    return None
+    return LODGING.get(tags.get("tourism"))
 
 
 def restaurant(osm_id, tags, lat, lng, cat):

@@ -23,6 +23,7 @@
     loading: false,
     error: null,
     warning: null,
+    lodgingRadius: null,
   };
 
   // Util DOM ------------------------------------------------
@@ -114,7 +115,7 @@
     const amenities = 'restaurant|fast_food|pub|bar|cafe|biergarten|food_court|ice_cream';
     const around = `(around:${radius},${lat.toFixed(5)},${lng.toFixed(5)})`;
     return `[out:json][timeout:20];
-(nwr["amenity"~"^(${amenities})$"]["name"]${around};nwr["tourism"="guest_house"]["name"]${around};);
+(nwr["amenity"~"^(${amenities})$"]["name"]${around};nwr["tourism"~"^(guest_house|hotel|motel|hostel|apartment|chalet)$"]["name"]${around};);
 out center tags qt;`;
   }
 
@@ -382,7 +383,7 @@ out center tags qt;`;
     return {
       id: el.type + '/' + el.id,
       name: tags.name,
-      amenity: tags.tourism === 'guest_house' && !CFG.amenityLabels[tags.amenity] ? 'guest_house' : tags.amenity,
+      amenity: CFG.amenityLabels[tags.amenity] ? tags.amenity : (TOURISM_TO_LODGING[tags.tourism] || tags.amenity),
       cuisine: tags.cuisine || '',
       lat, lng,
       address: addressParts.join(', ') || '',
@@ -404,7 +405,24 @@ out center tags qt;`;
   }
 
   // -------------- RICERCA / FILTRI ------------------------
-  const LODGING_RE = /\b(b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\w*|alloggi\w*|dormire|pernott\w*|guest ?house|camer[ae])\b/i;
+  // ---- Alloggi (B&B, agriturismi, hotel, case vacanze, ostelli)
+  const LODGING = new Set(['guest_house', 'hotel', 'apartment', 'hostel']);
+  const TOURISM_TO_LODGING = { guest_house: 'guest_house', hotel: 'hotel', motel: 'hotel',
+    hostel: 'hostel', apartment: 'apartment', chalet: 'apartment' };
+  const isLodging = r => LODGING.has(r.amenity);
+  const lodgingMode = () => state.amenityFilter === 'lodging' || isLodgingQuery(state.query);
+  const LODGING_MIN = 5, LODGING_MAX_RADIUS = 15000;
+
+  function lodgingLabel(r) {
+    const name = r.name || '', kind = (r.rawTags && r.rawTags.guest_house) || '';
+    if (/agritur/i.test(name) || /agri/i.test(kind)) return 'Agriturismo';
+    if (r.amenity === 'guest_house') {
+      return (kind === 'bed_and_breakfast' || /\bb ?& ?b\b|\bbnb\b|bed/i.test(name) || !kind) ? 'B&B' : 'Affittacamere';
+    }
+    return CFG.amenityLabels[r.amenity] || 'Alloggio';
+  }
+
+  const LODGING_RE = /(^|\s)(b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\w*|alloggi\w*|dormire|pernott\w*|guest ?house|camer[ae]|hotel|alberg\w*|ostell\w*|agriturism\w*|casa vacanze|case vacanze|appartament\w*)(?=\s|$)/i;
   function isLodgingQuery(q) { return !!q && LODGING_RE.test(q); }
 
   function matchesQuery(r, query) {
@@ -412,7 +430,7 @@ out center tags qt;`;
     const nq = normalize(query);
 
     // Ricerca generica di alloggi: tutti i B&B corrispondono
-    if (r.amenity === 'guest_house' && isLodgingQuery(query)) return true;
+    if (isLodging(r) && isLodgingQuery(query)) return true;
 
     // 0) match sui piatti del menu (ristoratori registrati)
     if (r.userGenerated && Array.isArray(r.menu) && r.menu.length) {
@@ -447,10 +465,12 @@ out center tags qt;`;
     // Filtro tipo. "Tutti" = dove mangiare; i B&B compaiono col filtro
     // B&B oppure cercando "b&b", "dormire", "affittacamere"...
     const wantsLodging = isLodgingQuery(state.query);
-    if (state.amenityFilter !== 'all') {
+    if (state.amenityFilter === 'lodging') {
+      res = res.filter(isLodging);
+    } else if (state.amenityFilter !== 'all') {
       res = res.filter(r => r.amenity === state.amenityFilter);
     } else if (!wantsLodging) {
-      res = res.filter(r => r.amenity !== 'guest_house');
+      res = res.filter(r => !isLodging(r));
     }
 
     // Filtro query
@@ -552,6 +572,19 @@ out center tags qt;`;
         if (osmRes.stale) state.warning = 'OpenStreetMap non risponde: mostro gli ultimi risultati salvati.';
       }
 
+      // Alloggi: se entro il raggio scelto sono pochi, allarga fino a 15 km
+      state.lodgingRadius = null;
+      if (!osmRes.error && lodgingMode() && state.radius < LODGING_MAX_RADIUS &&
+          lastOsm.filter(isLodging).length < LODGING_MIN) {
+        try {
+          const wide = await loadOsmRestaurants(origin, LODGING_MAX_RADIUS);
+          if (mySeq !== searchSeq) return;
+          const have = new Set(lastOsm.map(r => r.id));
+          lastOsm = lastOsm.concat(wide.list.filter(r => isLodging(r) && !have.has(r.id)));
+          state.lodgingRadius = LODGING_MAX_RADIUS;
+        } catch {}
+      }
+
       state.restaurants = [...userGen, ...lastOsm];
       state.error = null;
     } catch (e) {
@@ -618,7 +651,25 @@ out center tags qt;`;
     const warnHtml = state.warning
       ? `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1"><p style="margin:0">${escapeHtml(state.warning)}</p></div>`
       : '';
-    listEl.innerHTML = warnHtml + filtered.map((r, idx) => cardHtml(r, idx)).join('');
+    listEl.innerHTML = warnHtml + lodgingBannerHtml() + filtered.map((r, idx) => cardHtml(r, idx)).join('');
+  }
+
+  function lodgingBannerHtml() {
+    if (!lodgingMode()) return '';
+    const city = state.cityName || '';
+    const km = m => (m / 1000).toLocaleString('it-IT');
+    const widened = state.lodgingRadius && state.lodgingRadius > state.radius
+      ? `<p style="margin:0 0 8px"><strong>Pochi alloggi entro ${km(state.radius)} km: mostro quelli entro ${km(state.lodgingRadius)} km.</strong></p>` : '';
+    const b = `https://www.booking.com/searchresults.it.html?ss=${encodeURIComponent(city)}`;
+    const a = `https://www.airbnb.it/s/${encodeURIComponent(city)}/homes`;
+    return `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
+      ${widened}
+      <p style="margin:0 0 10px">Qui trovi le strutture registrate su OpenStreetMap. Per vedere <strong>tutti</strong> gli alloggi di ${escapeHtml(city)} con prezzi e disponibilit\u00E0:</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="portal-btn" href="${b}" target="_blank" rel="noopener"><span class="portal-name">Booking \u2197</span></a>
+        <a class="portal-btn" href="${a}" target="_blank" rel="noopener"><span class="portal-name">Airbnb \u2197</span></a>
+      </div>
+    </div>`;
   }
 
   function cardHtml(r, idx) {
@@ -652,7 +703,7 @@ out center tags qt;`;
       ? `<a class="btn-outline" href="${links.call}">\u260E Chiama</a>`
       : '';
 
-    const isBnb = r.amenity === 'guest_house';
+    const isBnb = isLodging(r);
     const stars = /^\d$/.test(r.rawTags?.stars || '') ? ' ' + '\u2605'.repeat(+r.rawTags.stars) : '';
 
     // Deep link portali (sempre visibili come riga principale)
@@ -692,7 +743,7 @@ out center tags qt;`;
           <div>
             <h3 class="card-title">${escapeHtml(r.name)}</h3>
             <div class="card-type">
-              ${escapeHtml(r.type || amenityLabel)}${stars}${cuisineLabel && !r.userGenerated && !isBnb ? ' \u00B7 ' + escapeHtml(cuisineLabel) : ''}
+              ${escapeHtml(r.type || (isBnb ? lodgingLabel(r) : amenityLabel))}${stars}${cuisineLabel && !r.userGenerated && !isBnb ? ' \u00B7 ' + escapeHtml(cuisineLabel) : ''}
             </div>
           </div>
           ${r._dishMatch ? `
@@ -788,7 +839,7 @@ out center tags qt;`;
       <div class="modal-head">
         <div>
           <h3>${escapeHtml(r.name)}${r.userGenerated ? ' <span class="verified-inline">\u2713</span>' : ''}</h3>
-          <div class="card-type">${escapeHtml(r.type || amenityLabel)}${r.cuisine && !r.userGenerated ? ' \u00B7 ' + escapeHtml(r.cuisine) : ''}</div>
+          <div class="card-type">${escapeHtml(r.type || (isLodging(r) ? lodgingLabel(r) : amenityLabel))}${r.cuisine && !r.userGenerated && !isLodging(r) ? ' \u00B7 ' + escapeHtml(r.cuisine) : ''}</div>
         </div>
         <button class="modal-close" id="modalCloseBtn" aria-label="Chiudi">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
@@ -822,7 +873,7 @@ out center tags qt;`;
           <p style="color:var(--c-muted)">Non disponibili su OpenStreetMap. Verifica chiamando il locale o su Google Maps.</p>
         </div>`)}
 
-        ${r.amenity === 'guest_house' ? `
+        ${isLodging(r) ? `
         <div class="modal-section">
           <h4>Parcheggi vicini</h4>
           <div id="parkingList" data-for="${escapeHtml(r.id)}"><p style="color:var(--c-muted)">Cerco i parcheggi in zona...</p></div>
@@ -867,7 +918,7 @@ out center tags qt;`;
     $('#modalBackdrop').classList.add('is-open');
     $('#modalCloseBtn').addEventListener('click', closeModal);
 
-    if (r.amenity === 'guest_house') {
+    if (isLodging(r)) {
       const from = { lat: r.lat, lng: r.lng };
       findParkingNear(from)
         .then(list => parkingHtml(from, list))
@@ -962,10 +1013,12 @@ out center tags qt;`;
     $('#amenityChips').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-amenity]');
       if (!btn) return;
+      const wasLodging = state.amenityFilter === 'lodging';
       state.amenityFilter = btn.dataset.amenity;
       document.querySelectorAll('#amenityChips .chip').forEach(c =>
         c.classList.toggle('is-active', c.dataset.amenity === state.amenityFilter));
-      renderResults();
+      if (state.amenityFilter === 'lodging' && !wasLodging && !state.error) search();
+      else renderResults();
     });
     $('#sortSelect').addEventListener('change', (e) => {
       state.sort = e.target.value;

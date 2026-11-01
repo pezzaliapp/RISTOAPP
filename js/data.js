@@ -56,6 +56,9 @@ const RISTOAPP_CONFIG = {
     food_court: 'Food court',
     ice_cream:  'Gelateria',
     guest_house: 'B&B',
+    hotel:      'Hotel',
+    apartment:  'Casa vacanze',
+    hostel:     'Ostello',
   },
 
   // Istanze Overpass pubbliche con copertura mondiale (provate in ordine).
