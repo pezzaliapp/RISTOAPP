@@ -1,7 +1,7 @@
 {
-  "name": "RistoApp — Trova e confronta ristoranti",
+  "name": "RistoApp — Dove mangiare, dormire e parcheggiare",
   "short_name": "RistoApp",
-  "description": "Cerca piatti e confronta i prezzi tra ristoranti, pizzerie e trattorie della tua zona.",
+  "description": "Ristoranti, pizzerie, B&B, agriturismi, hotel e parcheggi vicini in tutta Italia.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -9,7 +9,7 @@
   "background_color": "#F5EBDC",
   "theme_color": "#C44536",
   "lang": "it-IT",
-  "categories": ["food", "lifestyle", "utilities"],
+  "categories": ["food", "travel", "lifestyle"],
   "icons": [
     {
       "src": "icons/icon-192.png",
