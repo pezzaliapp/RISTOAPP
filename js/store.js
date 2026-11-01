@@ -56,6 +56,11 @@
     'Pizzeria':'restaurant','Trattoria':'restaurant','Osteria':'restaurant',
     'Ristorante':'restaurant','Fast food':'fast_food','Bar':'bar',
     'Caff\u00E8':'cafe','Gelateria':'ice_cream','Pub':'pub',
+    'B&B':'guest_house','Agriturismo':'guest_house','Affittacamere':'guest_house',
+    'Casa vacanze':'apartment','Hotel':'hotel','Ostello':'hostel',
+  };
+  const TYPE_TO_LODGING_KIND = {
+    'B&B':'bed_and_breakfast','Agriturismo':'agritourism','Affittacamere':'affittacamere',
   };
   const TYPE_TO_CUISINE = {
     'Pizzeria':'pizza','Trattoria':'italian;regional','Osteria':'italian;regional',
@@ -78,7 +83,9 @@
       vegan:           feats.some(f => /vegan/i.test(f)) ? 'yes' : '',
       gluten_free:     feats.some(f => /gluten|senza glutine/i.test(f)) ? 'yes' : '',
       payments: r.payments || [],
-      rawTags: { name: r.name },
+      rawTags: TYPE_TO_LODGING_KIND[r.type]
+        ? { name: r.name, guest_house: TYPE_TO_LODGING_KIND[r.type] }
+        : { name: r.name },
       userGenerated: true,
       type: r.type,
       hoursByDay: r.hours || {},

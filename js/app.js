@@ -24,6 +24,7 @@
     error: null,
     warning: null,
     lodgingRadius: null,
+    lodgingType: 'all',   // 'all' | 'bnb' | 'agri' | 'hotel' | 'apartment' | 'hostel'
   };
 
   // Util DOM ------------------------------------------------
@@ -413,14 +414,37 @@ out center tags qt;`;
   const lodgingMode = () => state.amenityFilter === 'lodging' || isLodgingQuery(state.query);
   const LODGING_MIN = 5, LODGING_MAX_RADIUS = 15000;
 
-  function lodgingLabel(r) {
+  // Sottotipo: 'bnb' | 'agri' | 'hotel' | 'apartment' | 'hostel'
+  function lodgingKind(r) {
+    if (!isLodging(r)) return null;
     const name = r.name || '', kind = (r.rawTags && r.rawTags.guest_house) || '';
-    if (/agritur/i.test(name) || /agri/i.test(kind)) return 'Agriturismo';
-    if (r.amenity === 'guest_house') {
+    if (r.type === 'Agriturismo' || /agritur/i.test(name) || /agri/i.test(kind)) return 'agri';
+    if (r.amenity === 'guest_house') return 'bnb';
+    return r.amenity;
+  }
+
+  function lodgingLabel(r) {
+    if (r.type) return r.type;
+    const k = lodgingKind(r), name = r.name || '', kind = (r.rawTags && r.rawTags.guest_house) || '';
+    if (k === 'agri') return 'Agriturismo';
+    if (k === 'bnb') {
       return (kind === 'bed_and_breakfast' || /\bb ?& ?b\b|\bbnb\b|bed/i.test(name) || !kind) ? 'B&B' : 'Affittacamere';
     }
     return CFG.amenityLabels[r.amenity] || 'Alloggio';
   }
+
+  // Sottotipo richiesto: dalla ricerca ("b&b", "hotel"...) o dal filtro
+  function kindFromQuery(q) {
+    if (!q) return null;
+    if (/(^|\s)(b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\w*)(?=\s|$)/i.test(q)) return 'bnb';
+    if (/(^|\s)agriturism\w*(?=\s|$)/i.test(q)) return 'agri';
+    if (/(^|\s)(hotel|alberg\w*)(?=\s|$)/i.test(q)) return 'hotel';
+    if (/(^|\s)(casa vacanze|case vacanze|appartament\w*)(?=\s|$)/i.test(q)) return 'apartment';
+    if (/(^|\s)ostell\w*(?=\s|$)/i.test(q)) return 'hostel';
+    return null;
+  }
+  const wantedKind = () => kindFromQuery(state.query) || state.lodgingType || 'all';
+  const matchesKind = r => { const w = wantedKind(); return w === 'all' || lodgingKind(r) === w; };
 
   const LODGING_RE = /(^|\s)(b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\w*|alloggi\w*|dormire|pernott\w*|guest ?house|camer[ae]|hotel|alberg\w*|ostell\w*|agriturism\w*|casa vacanze|case vacanze|appartament\w*)(?=\s|$)/i;
   function isLodgingQuery(q) { return !!q && LODGING_RE.test(q); }
@@ -465,11 +489,11 @@ out center tags qt;`;
     // Filtro tipo. "Tutti" = dove mangiare; i B&B compaiono col filtro
     // B&B oppure cercando "b&b", "dormire", "affittacamere"...
     const wantsLodging = isLodgingQuery(state.query);
-    if (state.amenityFilter === 'lodging') {
-      res = res.filter(isLodging);
+    if (state.amenityFilter === 'lodging' || (state.amenityFilter === 'all' && wantsLodging)) {
+      res = res.filter(r => isLodging(r) && matchesKind(r));
     } else if (state.amenityFilter !== 'all') {
       res = res.filter(r => r.amenity === state.amenityFilter);
-    } else if (!wantsLodging) {
+    } else {
       res = res.filter(r => !isLodging(r));
     }
 
@@ -574,8 +598,9 @@ out center tags qt;`;
 
       // Alloggi: se entro il raggio scelto sono pochi, allarga fino a 15 km
       state.lodgingRadius = null;
-      if (!osmRes.error && lodgingMode() && state.radius < LODGING_MAX_RADIUS &&
-          lastOsm.filter(isLodging).length < LODGING_MIN) {
+      const kindNeeded = wantedKind() === 'all' ? 'bnb' : wantedKind();
+      const enough = [...userGen, ...lastOsm].filter(r => lodgingKind(r) === kindNeeded).length >= LODGING_MIN;
+      if (!osmRes.error && lodgingMode() && state.radius < LODGING_MAX_RADIUS && !enough) {
         try {
           const wide = await loadOsmRestaurants(origin, LODGING_MAX_RADIUS);
           if (mySeq !== searchSeq) return;
@@ -619,6 +644,7 @@ out center tags qt;`;
     const titleEl = $('#resultsTitle');
 
     const filtered = filterAndSort(state.restaurants);
+    syncLodgingChips();
 
     // Titolo
     const where = state.userPos ? 'posizione attuale' : state.cityName;
@@ -654,12 +680,23 @@ out center tags qt;`;
     listEl.innerHTML = warnHtml + lodgingBannerHtml() + filtered.map((r, idx) => cardHtml(r, idx)).join('');
   }
 
+  function syncLodgingChips() {
+    const box = $('#lodgingFilters');
+    if (!box) return;
+    box.style.display = lodgingMode() ? '' : 'none';
+    const k = wantedKind();
+    document.querySelectorAll('#lodgingChips .chip').forEach(c =>
+      c.classList.toggle('is-active', c.dataset.lodging === k));
+  }
+
+  const KIND_PLURAL = { bnb: 'B&B', agri: 'agriturismi', hotel: 'hotel', apartment: 'case vacanze', hostel: 'ostelli' };
+
   function lodgingBannerHtml() {
     if (!lodgingMode()) return '';
     const city = state.cityName || '';
     const km = m => (m / 1000).toLocaleString('it-IT');
     const widened = state.lodgingRadius && state.lodgingRadius > state.radius
-      ? `<p style="margin:0 0 8px"><strong>Pochi alloggi entro ${km(state.radius)} km: mostro quelli entro ${km(state.lodgingRadius)} km.</strong></p>` : '';
+      ? `<p style="margin:0 0 8px"><strong>Pochi ${KIND_PLURAL[wantedKind()] || 'B&B'} entro ${km(state.radius)} km: mostro gli alloggi entro ${km(state.lodgingRadius)} km.</strong></p>` : '';
     const b = `https://www.booking.com/searchresults.it.html?ss=${encodeURIComponent(city)}`;
     const a = `https://www.airbnb.it/s/${encodeURIComponent(city)}/homes`;
     return `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
@@ -738,7 +775,7 @@ out center tags qt;`;
 
     return `
       <article class="card ${r.userGenerated ? 'is-verified' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms">
-        ${r.userGenerated ? `<div class="verified-badge">\u2713 Menu aggiornato dal titolare</div>` : ''}
+        ${r.userGenerated ? `<div class="verified-badge">\u2713 ${isLodging(r) ? 'Dati aggiornati dal titolare' : 'Menu aggiornato dal titolare'}</div>` : ''}
         <div class="card-top">
           <div>
             <h3 class="card-title">${escapeHtml(r.name)}</h3>
@@ -768,7 +805,7 @@ out center tags qt;`;
           ${callBtn}
           <button class="btn-outline" data-details="${escapeHtml(r.id)}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></svg>
-            ${r.userGenerated ? 'Menu completo' : isBnb ? 'Info e parcheggi' : 'Info'}
+            ${isBnb ? (r.userGenerated ? 'Camere e parcheggi' : 'Info e parcheggi') : r.userGenerated ? 'Menu completo' : 'Info'}
           </button>
         </div>
       </article>`;
@@ -784,7 +821,7 @@ out center tags qt;`;
     // Per ristoranti user-gen: menu completo + orari strutturati
     const userGenMenuHtml = r.userGenerated && Array.isArray(r.menu) && r.menu.length ? `
       <div class="modal-section">
-        <h4>Menu e prezzi</h4>
+        <h4>${isLodging(r) ? 'Camere e prezzi a notte' : 'Menu e prezzi'}</h4>
         <ul class="menu-list">
           ${r.menu.slice().sort((a,b)=>a.price-b.price).map(m => {
             const isMatch = state.query && normalize(m.dish).includes(normalize(state.query));
@@ -800,7 +837,7 @@ out center tags qt;`;
       const DAYS = ['Domenica','Luned\u00EC','Marted\u00EC','Mercoled\u00EC','Gioved\u00EC','Venerd\u00EC','Sabato'];
       const today = new Date().getDay();
       return `<div class="modal-section">
-        <h4>Orari settimanali</h4>
+        <h4>${isLodging(r) ? 'Orari reception / check-in' : 'Orari settimanali'}</h4>
         <div class="hours-grid">
           ${DAYS.map((name, i) => {
             const ranges = r.hoursByDay[i] || [];
@@ -1019,6 +1056,19 @@ out center tags qt;`;
         c.classList.toggle('is-active', c.dataset.amenity === state.amenityFilter));
       if (state.amenityFilter === 'lodging' && !wasLodging && !state.error) search();
       else renderResults();
+    });
+    $('#lodgingChips').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-lodging]');
+      if (!btn) return;
+      state.lodgingType = btn.dataset.lodging;
+      // una ricerca testuale tipo "hotel" non deve bloccare il filtro scelto
+      if (kindFromQuery(state.query)) { $('#queryInput').value = ''; state.query = ''; }
+      if (state.amenityFilter !== 'lodging') {
+        state.amenityFilter = 'lodging';
+        document.querySelectorAll('#amenityChips .chip').forEach(c =>
+          c.classList.toggle('is-active', c.dataset.amenity === 'lodging'));
+      }
+      search();
     });
     $('#sortSelect').addEventListener('change', (e) => {
       state.sort = e.target.value;

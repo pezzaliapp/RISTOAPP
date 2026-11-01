@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./css/styles.css?v=4.5.0" />
+  <link rel="stylesheet" href="./css/styles.css?v=4.6.0" />
 </head>
 <body>
 
@@ -56,9 +56,9 @@
       </div>
     </div>
     <div class="header-actions">
-      <button class="owner-entry-btn" id="ownerBtn" title="Sei un ristoratore? Registra la tua attivit&agrave;">
+      <button class="owner-entry-btn" id="ownerBtn" title="Hai un ristorante o un B&amp;B? Registralo gratis">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2V11z"/></svg>
-        <span>Sei un ristoratore?</span>
+        <span>Registra la tua attivit&agrave;</span>
       </button>
       <button class="icon-btn" id="installBtn" aria-label="Installa app" title="Installa come app">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -119,6 +119,17 @@
       <button class="chip" data-amenity="lodging">Dormire</button>
     </div>
   </section>
+  <section class="filters" id="lodgingFilters" aria-label="Tipo di alloggio" style="display:none">
+    <span class="filter-label">Alloggio</span>
+    <div id="lodgingChips" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="chip is-active" data-lodging="all">Tutti</button>
+      <button class="chip" data-lodging="bnb">B&amp;B</button>
+      <button class="chip" data-lodging="agri">Agriturismi</button>
+      <button class="chip" data-lodging="hotel">Hotel</button>
+      <button class="chip" data-lodging="apartment">Case vacanze</button>
+      <button class="chip" data-lodging="hostel">Ostelli</button>
+    </div>
+  </section>
   <section class="filters">
     <span class="filter-label">Raggio</span>
     <select id="radiusSelect" class="sort-select">
@@ -168,13 +179,13 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="./js/data.js?v=4.5.0"></script>
+  <script src="./js/data.js?v=4.6.0"></script>
   <!-- Firebase SDK (compat) - Fase 2 backend condiviso -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="./js/store.js?v=4.5.0"></script>
-  <script src="./js/owner.js?v=4.5.0"></script>
-  <script src="./js/app.js?v=4.5.0"></script>
+  <script src="./js/store.js?v=4.6.0"></script>
+  <script src="./js/owner.js?v=4.6.0"></script>
+  <script src="./js/app.js?v=4.6.0"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 /* ============================================================
- *  RISTOAPP - Area ristoratori
+ *  RISTOAPP - Area titolari (ristoranti, B&B, agriturismi, hotel...)
  *  Login, registrazione e dashboard per gestire il proprio
  *  locale (menu con prezzi, orari, pagamenti, contatti).
  * ============================================================ */
@@ -11,7 +11,51 @@
 
   // Giorni settimana
   const DAYS = ['Domenica','Luned\u00EC','Marted\u00EC','Mercoled\u00EC','Gioved\u00EC','Venerd\u00EC','Sabato'];
-  const TYPES = ['Pizzeria','Trattoria','Osteria','Ristorante','Fast food','Bar','Caff\u00E8','Gelateria','Pub'];
+  const FOOD_TYPES = ['Pizzeria','Trattoria','Osteria','Ristorante','Fast food','Bar','Caff\u00E8','Gelateria','Pub'];
+  const LODGING_TYPES = ['B&B','Agriturismo','Affittacamere','Casa vacanze','Hotel','Ostello'];
+  const isLodgingType = t => LODGING_TYPES.includes(t);
+  let editingLodging = false;
+
+  // Testi dell'editor che cambiano tra locale e alloggio
+  const TEXTS = {
+    food: {
+      hoursTitle: 'Orari settimanali',
+      hoursHint: 'Formato <code>HH:MM-HH:MM</code>. Per pi\u00F9 turni separa con virgola. Lascia vuoto se chiuso.',
+      hoursPh: '12:00-14:30, 19:30-23:00',
+      featTitle: 'Caratteristiche del locale',
+      featHint: 'Elenco separato da virgola (es. <em>forno a legna, terrazza, asporto, domicilio, gluten-free, accessibile</em>).',
+      featPh: 'forno a legna, terrazza, asporto',
+      menuTitle: 'Menu e prezzi',
+      addBtn: '+ Aggiungi piatto',
+      menuHint: '\u00C8 la parte pi\u00F9 importante: <strong>i piatti con prezzo</strong> sono quelli che rendono il tuo locale trovabile nelle ricerche come "pizza margherita", "cappelletti", ecc.',
+      itemPh: 'Nome piatto', pricePh: '9.50', unit: '\u20AC',
+    },
+    lodging: {
+      hoursTitle: 'Orari di reception / check-in',
+      hoursHint: 'Facoltativo. Formato <code>HH:MM-HH:MM</code>, es. <code>14:00-20:00</code>. Lascia vuoto i giorni senza check-in.',
+      hoursPh: '14:00-20:00',
+      featTitle: 'Servizi',
+      featHint: 'Elenco separato da virgola (es. <em>colazione inclusa, parcheggio privato, wifi, aria condizionata, animali ammessi, accessibile</em>).',
+      featPh: 'colazione inclusa, parcheggio privato, wifi',
+      menuTitle: 'Camere e prezzi',
+      addBtn: '+ Aggiungi camera',
+      menuHint: 'Indica le camere con il <strong>prezzo a notte</strong> (es. "Camera doppia" 80). Compariranno nella scheda della tua struttura.',
+      itemPh: 'Es. Camera doppia', pricePh: '80', unit: '\u20AC/notte',
+    },
+  };
+  function applyTypeTexts(type) {
+    editingLodging = isLodgingType(type);
+    const t = TEXTS[editingLodging ? 'lodging' : 'food'];
+    const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    set('edHoursTitle', t.hoursTitle); set('edHoursHint', t.hoursHint);
+    set('edFeatTitle', t.featTitle); set('edFeatHint', t.featHint);
+    set('edMenuTitle', t.menuTitle); set('addDish', t.addBtn); set('edMenuHint', t.menuHint);
+    document.querySelectorAll('[name^="hours_"]').forEach(i => i.placeholder = t.hoursPh);
+    const f = document.querySelector('[name="features"]'); if (f) f.placeholder = t.featPh;
+    document.querySelectorAll('.menu-row [name="dish"]').forEach(i => i.placeholder = t.itemPh);
+    document.querySelectorAll('.menu-row [name="price"]').forEach(i => i.placeholder = t.pricePh);
+    document.querySelectorAll('.menu-row-cur').forEach(i => i.textContent = t.unit);
+  }
   const PAYMENTS = [
     { key: 'contanti',  label: 'Contanti',   icon: '\uD83D\uDCB6' },
     { key: 'carta',     label: 'Carta di credito', icon: '\uD83D\uDCB3' },
@@ -51,7 +95,7 @@
     inner.innerHTML = `
       <div class="owner-head">
         <div>
-          <div class="owner-eyebrow">Area ristoratori</div>
+          <div class="owner-eyebrow">Area titolari</div>
           <h2 class="owner-title">${isLogin ? 'Accedi al tuo pannello' : 'Registra la tua attivit\u00E0'}</h2>
           <p class="owner-sub">${isLogin
             ? 'Entra per gestire menu, prezzi e orari del tuo locale.'
@@ -65,7 +109,7 @@
         ${!isLogin ? `
           <label class="form-field">
             <span>Nome / Ragione sociale</span>
-            <input type="text" name="name" placeholder="Es. Pizzeria Da Mario" autocomplete="name" />
+            <input type="text" name="name" placeholder="Es. Pizzeria Da Mario o B&amp;B Il Faro" autocomplete="name" />
           </label>` : ''}
         <label class="form-field">
           <span>Email</span>
@@ -139,8 +183,8 @@
         ${mine.length === 0
           ? `<div class="empty-box">
                <p><strong>Non hai ancora nessun locale.</strong></p>
-               <p>Aggiungi la tua attivit\u00E0 per farla apparire nelle ricerche con il menu e i prezzi che scegli tu.</p>
-               <button class="btn-primary" id="addRestaurantBtn">+ Aggiungi il tuo locale</button>
+               <p>Aggiungi il tuo ristorante, B&amp;B, agriturismo o hotel per farlo apparire nelle ricerche con i prezzi che scegli tu.</p>
+               <button class="btn-primary" id="addRestaurantBtn">+ Aggiungi la tua attivit\u00E0</button>
              </div>`
           : `<div class="my-list">
                ${mine.map(r => `
@@ -201,7 +245,7 @@
     inner.innerHTML = `
       <div class="owner-head">
         <div>
-          <div class="owner-eyebrow">${existing ? 'Modifica locale' : 'Nuovo locale'}</div>
+          <div class="owner-eyebrow">${existing ? 'Modifica attivit\u00E0' : 'Nuova attivit\u00E0'}</div>
           <h2 class="owner-title">${existing ? escapeHtml(existing.name) : 'Aggiungi la tua attivit\u00E0'}</h2>
         </div>
         <div style="display:flex;gap:8px;align-items:flex-start">
@@ -218,12 +262,17 @@
           <div class="grid-2">
             <label class="form-field">
               <span>Nome del locale *</span>
-              <input name="name" required value="${escapeAttr(r.name)}" placeholder="Es. Pizzeria Da Mario" />
+              <input name="name" required value="${escapeAttr(r.name)}" placeholder="Es. Pizzeria Da Mario o B&amp;B Il Faro" />
             </label>
             <label class="form-field">
               <span>Tipologia *</span>
               <select name="type" required>
-                ${TYPES.map(t => `<option ${r.type === t ? 'selected' : ''}>${t}</option>`).join('')}
+                <optgroup label="Dove mangiare">
+                  ${FOOD_TYPES.map(t => `<option ${r.type === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+                </optgroup>
+                <optgroup label="Dove dormire">
+                  ${LODGING_TYPES.map(t => `<option ${r.type === t ? 'selected' : ''}>${escapeHtml(t)}</option>`).join('')}
+                </optgroup>
               </select>
             </label>
             <label class="form-field grid-col-2">
@@ -253,8 +302,8 @@
         </div>
 
         <div class="editor-section">
-          <h3>Orari settimanali</h3>
-          <p class="editor-hint">Formato <code>HH:MM-HH:MM</code>. Per pi\u00F9 turni separa con virgola. Lascia vuoto se chiuso.</p>
+          <h3 id="edHoursTitle">Orari settimanali</h3>
+          <p class="editor-hint" id="edHoursHint">Formato <code>HH:MM-HH:MM</code>. Per pi\u00F9 turni separa con virgola. Lascia vuoto se chiuso.</p>
           <div class="hours-editor">
             ${DAYS.map((name, i) => `
               <label class="form-field">
@@ -276,8 +325,8 @@
         </div>
 
         <div class="editor-section">
-          <h3>Caratteristiche del locale</h3>
-          <p class="editor-hint">Elenco separato da virgola (es. <em>forno a legna, terrazza, asporto, domicilio, gluten-free, accessibile</em>).</p>
+          <h3 id="edFeatTitle">Caratteristiche del locale</h3>
+          <p class="editor-hint" id="edFeatHint">Elenco separato da virgola (es. <em>forno a legna, terrazza, asporto, domicilio, gluten-free, accessibile</em>).</p>
           <label class="form-field">
             <input name="features" value="${escapeAttr((r.features||[]).join(', '))}" placeholder="forno a legna, terrazza, asporto" />
           </label>
@@ -285,10 +334,10 @@
 
         <div class="editor-section">
           <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
-            <h3>Menu e prezzi</h3>
+            <h3 id="edMenuTitle">Menu e prezzi</h3>
             <button type="button" class="chip" id="addDish">+ Aggiungi piatto</button>
           </div>
-          <p class="editor-hint">\u00C8 la parte pi\u00F9 importante: <strong>i piatti con prezzo</strong> sono quelli che rendono il tuo locale trovabile nelle ricerche come "pizza margherita", "cappelletti", ecc.</p>
+          <p class="editor-hint" id="edMenuHint">\u00C8 la parte pi\u00F9 importante: <strong>i piatti con prezzo</strong> sono quelli che rendono il tuo locale trovabile nelle ricerche come "pizza margherita", "cappelletti", ecc.</p>
           <div class="menu-editor" id="menuEditor">
             ${(r.menu || []).map((m, i) => menuRowHtml(m, i)).join('')}
           </div>
@@ -299,6 +348,8 @@
         </div>
       </form>`;
 
+    applyTypeTexts(r.type);
+    $('[name="type"]').addEventListener('change', e => applyTypeTexts(e.target.value));
     $('#ownerCloseBtn').onclick = closePanel;
     $('#backBtn').onclick = (e) => { e.preventDefault(); renderDashboard(); };
     $('#addDish').onclick = () => {
@@ -306,6 +357,7 @@
       const idx = editor.querySelectorAll('.menu-row').length;
       editor.insertAdjacentHTML('beforeend', menuRowHtml({ dish: '', price: '' }, idx));
       attachMenuRowEvents();
+      applyTypeTexts($('[name="type"]').value);
     };
     attachMenuRowEvents();
 
