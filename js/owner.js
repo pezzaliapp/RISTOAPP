@@ -62,7 +62,7 @@
     { key: 'bancomat',  label: 'Bancomat',   icon: '\uD83C\uDFE7' },
     { key: 'satispay',  label: 'Satispay',   icon: '\uD83D\uDCF1' },
     { key: 'buoni',     label: 'Buoni pasto',icon: '\uD83C\uDF7D\uFE0F' },
-    { key: 'applepay',  label: 'Apple Pay',  icon: '\uF8FF' },
+    { key: 'applepay',  label: 'Apple Pay',  icon: '\uD83C\uDF4F' },
     { key: 'googlepay', label: 'Google Pay', icon: 'G' },
   ];
 

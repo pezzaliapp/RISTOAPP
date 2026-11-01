@@ -91,6 +91,10 @@ a { color: inherit; }
   text-transform: uppercase;
   letter-spacing: .24em;
   color: var(--c-muted);
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .brand-tag { font-size: 9px; letter-spacing: .12em; }
 }
 .header-actions { display: flex; gap: 8px; }
 .icon-btn {
