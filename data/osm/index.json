@@ -1,0 +1,185 @@
+{
+ "generated": "2026-11-01T20:46:50.807Z",
+ "cities": [
+  {
+   "name": "Civitanova Marche",
+   "slug": "civitanova-marche",
+   "file": "civitanova-marche.json",
+   "lat": 43.3065,
+   "lng": 13.7231,
+   "radius": 10000,
+   "count": 292,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Porto Sant’Elpidio",
+   "slug": "porto-sant-elpidio",
+   "file": "porto-sant-elpidio.json",
+   "lat": 43.2583,
+   "lng": 13.7589,
+   "radius": 10000,
+   "count": 277,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Porto San Giorgio",
+   "slug": "porto-san-giorgio",
+   "file": "porto-san-giorgio.json",
+   "lat": 43.1833,
+   "lng": 13.8,
+   "radius": 10000,
+   "count": 143,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Fermo",
+   "slug": "fermo",
+   "file": "fermo.json",
+   "lat": 43.16,
+   "lng": 13.718,
+   "radius": 10000,
+   "count": 122,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Macerata",
+   "slug": "macerata",
+   "file": "macerata.json",
+   "lat": 43.3,
+   "lng": 13.453,
+   "radius": 10000,
+   "count": 241,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Porto Recanati",
+   "slug": "porto-recanati",
+   "file": "porto-recanati.json",
+   "lat": 43.4333,
+   "lng": 13.66,
+   "radius": 10000,
+   "count": 332,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Montegranaro",
+   "slug": "montegranaro",
+   "file": "montegranaro.json",
+   "lat": 43.2333,
+   "lng": 13.6333,
+   "radius": 10000,
+   "count": 121,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "San Benedetto del Tronto",
+   "slug": "san-benedetto-del-tronto",
+   "file": "san-benedetto-del-tronto.json",
+   "lat": 42.944,
+   "lng": 13.881,
+   "radius": 10000,
+   "count": 267,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Ancona",
+   "slug": "ancona",
+   "file": "ancona.json",
+   "lat": 43.6158,
+   "lng": 13.5189,
+   "radius": 10000,
+   "count": 503,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Pesaro",
+   "slug": "pesaro",
+   "file": "pesaro.json",
+   "lat": 43.9102,
+   "lng": 12.9139,
+   "radius": 10000,
+   "count": 278,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Roma",
+   "slug": "roma",
+   "file": "roma.json",
+   "lat": 41.9028,
+   "lng": 12.4964,
+   "radius": 5000,
+   "count": 4276,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Milano",
+   "slug": "milano",
+   "file": "milano.json",
+   "lat": 45.4642,
+   "lng": 9.19,
+   "radius": 5000,
+   "count": 5653,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Bologna",
+   "slug": "bologna",
+   "file": "bologna.json",
+   "lat": 44.4949,
+   "lng": 11.3426,
+   "radius": 5000,
+   "count": 1589,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Firenze",
+   "slug": "firenze",
+   "file": "firenze.json",
+   "lat": 43.7696,
+   "lng": 11.2558,
+   "radius": 5000,
+   "count": 1943,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Napoli",
+   "slug": "napoli",
+   "file": "napoli.json",
+   "lat": 40.8518,
+   "lng": 14.2681,
+   "radius": 5000,
+   "count": 1395,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Torino",
+   "slug": "torino",
+   "file": "torino.json",
+   "lat": 45.0703,
+   "lng": 7.6869,
+   "radius": 5000,
+   "count": 2527,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Bari",
+   "slug": "bari",
+   "file": "bari.json",
+   "lat": 41.1171,
+   "lng": 16.8719,
+   "radius": 5000,
+   "count": 626,
+   "updated": "2026-11-01T20:46:50.807Z"
+  },
+  {
+   "name": "Pescara",
+   "slug": "pescara",
+   "file": "pescara.json",
+   "lat": 42.4584,
+   "lng": 14.2081,
+   "radius": 10000,
+   "count": 1091,
+   "updated": "2026-11-01T20:46:50.807Z"
+  }
+ ]
+}
