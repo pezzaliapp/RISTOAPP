@@ -1,1 +1,1 @@
-{"items":[],"places":[["Roccamena",37.83603,13.15386,3],["Sparaciotta",37.84748,13.16088,5],["Villaggio Capparrini",37.82691,13.13561,5]]}
+{"items":[{"id":"node/13070916888","name":"Ponte Calatrasi","amenity":"guest_house","lat":37.835213,"lng":13.117495,"address":"Roccamena","website":"https://www.agriturismopontecalatrasi.com/","rawTags":{"guest_house":"agritourism"}}],"places":[["Roccamena",37.83603,13.15386,3],["Sparaciotta",37.84748,13.16088,5],["Villaggio Capparrini",37.82691,13.13561,5]]}

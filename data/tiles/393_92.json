@@ -1,1 +1,1 @@
-{"items":[{"id":"node/13686531191","name":"S'Offelleria","amenity":"cafe","lat":39.301724,"lng":9.204013}],"places":[["Sìnnia/Sinnai",39.30424,9.20354,2],["Tasonis",39.30733,9.27217,5]]}
+{"items":[{"id":"node/13686531191","name":"S'Offelleria","amenity":"cafe","lat":39.301724,"lng":9.204013},{"id":"way/550406643","name":"Sa Meri e Domu","amenity":"guest_house","lat":39.302025,"lng":9.202524,"address":"Via Colletta 23, 09048 Sinnai","rawTags":{"rooms":"3","internet_access":"yes"}}],"places":[["Sìnnia/Sinnai",39.30424,9.20354,2],["Tasonis",39.30733,9.27217,5]]}

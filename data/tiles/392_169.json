@@ -1,1 +1,1 @@
-{"items":[],"places":[["Casabona",39.25028,16.96066,3],["San Nicola dell'Alto",39.29135,16.97224,3],["Zinga",39.26098,16.91821,3]]}
+{"items":[{"id":"way/236285019","name":"B&B Castello Michelina","amenity":"guest_house","lat":39.288229,"lng":16.975785,"address":"Via Ciuxa 2","website":"http://www.castellomichelina.it/","rawTags":{"rooms":"4","internet_access":"yes"}}],"places":[["Casabona",39.25028,16.96066,3],["San Nicola dell'Alto",39.29135,16.97224,3],["Zinga",39.26098,16.91821,3]]}

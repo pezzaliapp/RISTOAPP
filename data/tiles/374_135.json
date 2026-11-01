@@ -1,1 +1,1 @@
-{"items":[],"places":[["Raffadali",37.40405,13.53208,2],["Sant'Angelo Muxaro",37.47902,13.54432,3],["Santa Elisabetta",37.43286,13.55528,3],["Villaggio Grotta Murata",37.44952,13.50284,5]]}
+{"items":[{"id":"node/9013747551","name":"Villa Greco","amenity":"guest_house","lat":37.437671,"lng":13.555528,"rawTags":{"rooms":"2","internet_access":"yes"}}],"places":[["Raffadali",37.40405,13.53208,2],["Sant'Angelo Muxaro",37.47902,13.54432,3],["Santa Elisabetta",37.43286,13.55528,3],["Villaggio Grotta Murata",37.44952,13.50284,5]]}
