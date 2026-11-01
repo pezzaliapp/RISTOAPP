@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: update-osm
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -34,9 +34,11 @@ jobs:
         run: node scripts/build-osm.mjs
 
       - name: Salva i dati nel repository
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898699+github-actions[bot]@users.noreply.github.com"
+          mkdir -p data/osm
           git add data/osm
           if git diff --cached --quiet; then
             echo "Nessuna modifica"

@@ -40,7 +40,7 @@ export function coverRadius(city) {
 }
 
 function buildQuery(lat, lng, radius) {
-  return `[out:json][timeout:90];
+  return `[out:json][timeout:50];
 nwr["amenity"~"^(${AMENITIES})$"]["name"](around:${radius},${lat},${lng});
 out center tags qt;`;
 }
@@ -84,13 +84,21 @@ export function normalizeElement(el) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Tempo massimo complessivo: oltre questo si salva quello che c'e'
+// (GitHub interrompe il job a 30 minuti e non salverebbe nulla).
+const DEADLINE = Date.now() + (Number(process.env.OSM_DEADLINE_MS) || 20 * 60 * 1000);
+const remaining = () => DEADLINE - Date.now();
+
 async function overpass(query) {
-  let lastErr;
-  for (let attempt = 0; attempt < 3; attempt++) {
+  let lastErr = new Error('tempo esaurito');
+  for (let round = 0; round < 2; round++) {
     for (const endpoint of CFG.overpassEndpoints) {
+      const budget = Math.min(60000, remaining());
+      if (budget < 5000) throw lastErr;
+      const t0 = Date.now();
       try {
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 120000);
+        const t = setTimeout(() => ctrl.abort(), budget);
         const resp = await fetch(endpoint, {
           method: 'POST',
           body: 'data=' + encodeURIComponent(query),
@@ -101,13 +109,14 @@ async function overpass(query) {
         const json = await resp.json();
         if (!Array.isArray(json.elements)) throw new Error('risposta non valida');
         if (json.remark && /timeout|runtime error/i.test(json.remark)) throw new Error(json.remark);
+        console.log(`  OK ${endpoint} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
         return json;
       } catch (e) {
-        lastErr = e;
-        console.warn(`  ${endpoint}: ${e.message}`);
+        lastErr = e.name === 'AbortError' ? new Error('timeout') : e;
+        console.log(`  KO ${endpoint}: ${lastErr.message} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
       }
     }
-    await sleep(15000 * (attempt + 1));
+    if (round === 0) await sleep(10000);
   }
   throw lastErr;
 }
@@ -121,11 +130,21 @@ async function main() {
   const index = { generated: new Date().toISOString(), cities: [] };
   let failures = 0;
 
+  const writeIndex = () => fs.writeFileSync(indexPath, JSON.stringify(index, null, 1));
+  const keepPrevious = (slug) => {
+    const prev = oldIndex.cities.find(c => c.slug === slug);
+    if (prev && fs.existsSync(path.join(OUT_DIR, prev.file))) index.cities.push(prev);
+  };
+
   for (const city of CFG.cities) {
     const slug = slugify(city.name);
+    if (remaining() < 10000) {
+      console.log(`${city.name}: tempo esaurito, tengo i dati precedenti`);
+      failures++; keepPrevious(slug); continue;
+    }
     const radius = coverRadius(city);
     const file = `${slug}.json`;
-    process.stdout.write(`${city.name} (${radius / 1000} km)... `);
+    console.log(`${city.name} (${radius / 1000} km)`);
     try {
       const json = await overpass(buildQuery(city.lat, city.lng, radius));
       const items = json.elements.map(normalizeElement).filter(Boolean);
@@ -134,19 +153,20 @@ async function main() {
       unique.sort((a, b) => a.id.localeCompare(b.id));
       fs.writeFileSync(path.join(OUT_DIR, file), JSON.stringify({ name: city.name, lat: city.lat, lng: city.lng, radius, items: unique }));
       index.cities.push({ name: city.name, slug, file, lat: city.lat, lng: city.lng, radius, count: unique.length, updated: index.generated });
-      console.log(`${unique.length} locali`);
+      console.log(`  -> ${unique.length} locali salvati`);
+      writeIndex();
     } catch (e) {
       failures++;
-      console.log(`ERRORE (${e.message}) - tengo i dati precedenti`);
-      const prev = oldIndex.cities.find(c => c.slug === slug);
-      if (prev && fs.existsSync(path.join(OUT_DIR, prev.file))) index.cities.push(prev);
+      console.log(`  -> ERRORE (${e.message}), tengo i dati precedenti`);
+      keepPrevious(slug);
+      writeIndex();
     }
-    await sleep(5000); // gentilezza verso i server pubblici
+    await sleep(3000); // gentilezza verso i server pubblici
   }
 
-  fs.writeFileSync(indexPath, JSON.stringify(index, null, 1));
+  writeIndex();
   console.log(`Fatto: ${index.cities.length} citta' disponibili, ${failures} errori.`);
-  if (!index.cities.length) process.exit(1);
+  // Non fallisce mai: il passo successivo salva comunque cio' che c'e'.
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
