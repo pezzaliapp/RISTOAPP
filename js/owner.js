@@ -261,7 +261,7 @@
           <h3>Informazioni di base</h3>
           <div class="grid-2">
             <label class="form-field">
-              <span>Nome del locale *</span>
+              <span>Nome dell'attivit\u00E0 *</span>
               <input name="name" required value="${escapeAttr(r.name)}" placeholder="Es. Pizzeria Da Mario o B&amp;B Il Faro" />
             </label>
             <label class="form-field">
@@ -344,7 +344,7 @@
         </div>
 
         <div class="editor-actions">
-          <button type="submit" class="btn-primary btn-full">${existing ? 'Salva modifiche' : 'Pubblica il locale'}</button>
+          <button type="submit" class="btn-primary btn-full">${existing ? 'Salva modifiche' : 'Pubblica la tua attivit\u00E0'}</button>
         </div>
       </form>`;
 
@@ -408,7 +408,7 @@
         await renderDashboard();
       } catch (err) {
         alert(err.message);
-        if (btn) { btn.disabled = false; btn.textContent = existing ? 'Salva modifiche' : 'Pubblica il locale'; }
+        if (btn) { btn.disabled = false; btn.textContent = existing ? 'Salva modifiche' : 'Pubblica la tua attivit\u00E0'; }
       }
     };
   }
