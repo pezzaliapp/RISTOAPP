@@ -9,6 +9,16 @@
 
 (() => {
   const CFG = window.RISTOAPP_CONFIG;
+  const I18N = window.I18N;
+  const t = (k, p) => I18N.t(k, p);
+
+  // Errore con chiave di traduzione: il messaggio si ritraduce al cambio lingua
+  function i18nError(key, params) {
+    const e = new Error(t(key, params));
+    e.i18nKey = key; e.i18nParams = params;
+    return e;
+  }
+  const msgText = m => (m && typeof m === 'object') ? t(m.key, m.params) : (m || '');
 
   // Stato ---------------------------------------------------
   const state = {
@@ -108,7 +118,7 @@
         };
       }
     } catch {}
-    throw new Error(`Località non trovata: "${cityName}". Controlla il nome (es. "Civitanova Marche").`);
+    throw i18nError('err.cityNotFound', { city: cityName });
   }
 
   // -------------- OVERPASS --------------------------------
@@ -170,7 +180,7 @@ out center tags qt;`;
           }, CFG.overpassTimeoutMs || 20000);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const json = await resp.json();
-          if (!json || !Array.isArray(json.elements)) throw new Error('Risposta non valida');
+          if (!json || !Array.isArray(json.elements)) throw new Error(t('err.badResponse'));
           // Overpass a volte risponde 200 ma con "remark" di timeout e 0 elementi
           if (!json.elements.length && json.remark && /timeout|runtime error/i.test(json.remark)) {
             throw new Error('Timeout server');
@@ -182,7 +192,7 @@ out center tags qt;`;
         }
       }
     }
-    throw new Error('I server di OpenStreetMap non rispondono da questa rete (' + (lastErr?.message || 'errore di rete') + '). Riprova tra poco.');
+    throw i18nError('err.overpass', { detail: lastErr?.message || t('err.network') });
   }
 
   // ---- Dati di TUTTA ITALIA pre-scaricati da GitHub Actions (data/tiles/),
@@ -291,26 +301,23 @@ out center tags qt;`;
     return (near.length >= 2 ? near : sorted).slice(0, 5);
   }
 
-  const PARKING_TYPES = {
-    surface: 'a raso', underground: 'sotterraneo', 'multi-storey': 'multipiano',
-    street_side: 'lungo la strada', lane: 'sulla carreggiata', rooftop: 'sul tetto',
-    carports: 'coperto', garage_boxes: 'box',
-  };
+  const PARKING_TYPES = ['surface', 'underground', 'multi-storey', 'street_side',
+    'lane', 'rooftop', 'carports', 'garage_boxes'];
 
   function parkingHtml(from, list) {
-    if (!list.length) return `<p style="color:var(--c-muted)">Nessun parcheggio pubblico mappato entro 1,5 km. Chiedi alla struttura se dispone di posti auto.</p>`;
+    if (!list.length) return `<p style="color:var(--c-muted)">${escapeHtml(t('park.none'))}</p>`;
     return `<ul class="menu-list">${list.map(p => {
-      const type = PARKING_TYPES[p.type] || '';
-      const title = p.name || ('Parcheggio' + (type ? ' ' + type : ''));
-      const fee = p.fee === 'no' ? 'gratuito' : p.fee === 'yes' ? 'a pagamento' : 'tariffa non indicata';
+      const type = PARKING_TYPES.includes(p.type) ? t('park.type.' + p.type) : '';
+      const title = p.name || (type ? t('park.titleType', { type }) : t('park.title'));
+      const fee = p.fee === 'no' ? t('park.free') : p.fee === 'yes' ? t('park.paid') : t('park.feeUnknown');
       const walkMin = Math.max(1, Math.round(p.distance * 1.3 / 80));
-      const dist = p.distance < 1000 ? Math.round(p.distance) + ' m' : (p.distance / 1000).toFixed(1).replace('.', ',') + ' km';
-      const details = [p.name && type ? type : '', fee, /^\d+$/.test(p.capacity) ? p.capacity + ' posti' : ''].filter(Boolean).join(' \u00B7 ');
+      const dist = I18N.fmtDist(p.distance);
+      const details = [p.name && type ? type : '', fee, /^\d+$/.test(p.capacity) ? t('park.spaces', { n: I18N.fmtNum(+p.capacity) }) : ''].filter(Boolean).join(' \u00B7 ');
       const nav = `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${p.lat},${p.lng}&travelmode=driving`;
       return `<li style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <span><span class="dish-name">\uD83C\uDD7F\uFE0F ${escapeHtml(title)}</span><br>
-          <small style="color:var(--c-muted)">${escapeHtml(details)} \u00B7 ${dist}, circa ${walkMin} min a piedi</small></span>
-        <a class="btn-outline" style="flex:0 0 auto;width:auto;padding:6px 14px" href="${nav}" target="_blank" rel="noopener">Percorso</a>
+          <small style="color:var(--c-muted)">${escapeHtml(details)} \u00B7 ${escapeHtml(t('park.walk', { dist, min: walkMin }))}</small></span>
+        <a class="btn-outline" style="flex:0 0 auto;width:auto;padding:6px 14px" href="${nav}" target="_blank" rel="noopener">${escapeHtml(t('park.route'))}</a>
       </li>`;
     }).join('')}</ul>`;
   }
@@ -424,30 +431,52 @@ out center tags qt;`;
   }
 
   function lodgingLabel(r) {
-    if (r.type) return r.type;
+    if (r.type) return I18N.typeLabel(r.type);
     const k = lodgingKind(r), name = r.name || '', kind = (r.rawTags && r.rawTags.guest_house) || '';
-    if (k === 'agri') return 'Agriturismo';
+    if (k === 'agri') return t('type.agri');
     if (k === 'bnb') {
-      return (kind === 'bed_and_breakfast' || /\bb ?& ?b\b|\bbnb\b|bed/i.test(name) || !kind) ? 'B&B' : 'Affittacamere';
+      return (kind === 'bed_and_breakfast' || /\bb ?& ?b\b|\bbnb\b|bed/i.test(name) || !kind) ? t('type.bnb') : t('type.rooms');
     }
-    return CFG.amenityLabels[r.amenity] || 'Alloggio';
+    return CFG.amenityLabels[r.amenity] ? I18N.amenityLabel(r.amenity) : t('type.lodging');
   }
 
   // Sottotipo richiesto: dalla ricerca ("b&b", "hotel"...) o dal filtro
+  // Parole in it/en/es/de/fr a parole intere; il giapponese (senza spazi)
+  // si confronta come sottostringa.
+  const word = src => new RegExp('(^|\\s)(' + src + ')(?=\\s|$)', 'i');
+  const KIND_RES = {
+    bnb: [word('b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\\w*|chambres? d.?h[o\u00F4]tes?|g[a\u00E4]stezimmer'),
+          /(?<!\u8FB2\u5BB6)\u6C11\u5BBF/],                                   // 民宿 (non 農家民宿)
+    agri: [word('agriturism\\w*|agroturism\\w*|agritourisme?s?|farm ?stays?|farmhouses?|ferienh[o\u00F6]fe?|bauernh[o\u00F6]fe?|fermes?(-| )auberges?'),
+           /\u30A2\u30B0\u30EA\u30C4\u30FC\u30EA\u30BA\u30E2|\u8FB2\u5BB6\u6C11\u5BBF|\u8FB2\u6CCA/], // アグリツーリズモ 農家民宿 農泊
+    hotel: [word('h[o\u00F4]tel\\w*|alberg\\w*|hostal\\w*'),
+            /\u30DB\u30C6\u30EB|\u65C5\u9928/],                                // ホテル 旅館
+    apartment: [word('casa vacanze|case vacanze|appartament\\w*|apartments?|apartamentos?|appartements?|holiday (homes?|rentals?|lets?|apartments?)|vacation rentals?|casas? (vacacional(es)?|rurales?)|ferienwohnung\\w*|ferienh[a\u00E4]us\\w*|g[i\u00EE]tes?|locations? de vacances'),
+                /\u8CB8\u5225\u8358|\u30D0\u30B1\u30FC\u30B7\u30E7\u30F3\u30EC\u30F3\u30BF\u30EB|\u30B3\u30F3\u30C9\u30DF\u30CB\u30A2\u30E0|\u30A2\u30D1\u30FC\u30C8\u30E1\u30F3\u30C8/], // 貸別荘 バケーションレンタル コンドミニアム アパートメント
+    hostel: [word('ostell\\w*|hostels?|albergues?|jugendherberge\\w*|herbergen?|auberges? de jeunesse'),
+             /\u30DB\u30B9\u30C6\u30EB/],                                     // ホステル
+  };
+  const LODGING_GENERIC = [
+    word('alloggi\\w*|dormire|pernott\\w*|guest ?houses?|camer[ae]|' +
+         'accommodations?|lodgings?|places? to stay|where to stay|stay|sleep|rooms?|' +
+         'alojamientos?|hospedaje|dormir|habitaci[o\u00F3]n(es)?|d[o\u00F3]nde dormir|pensi[o\u00F3]n(es)?|' +
+         'unterkunft|unterk[u\u00FC]nfte|[u\u00FC]bernacht\\w*|schlafen|zimmer|pensionen|' +
+         'h[e\u00E9]bergements?|logements?|o[u\u00F9] dormir|chambres?|pensions?'),
+    /\u5BBF|\u30B2\u30B9\u30C8\u30CF\u30A6\u30B9|\u6CCA\u307E\u308B|\u90E8\u5C4B/,          // 宿 ゲストハウス 泊まる 部屋
+  ];
+  const anyRe = (list, q) => list.some(re => re.test(q));
+
   function kindFromQuery(q) {
     if (!q) return null;
-    if (/(^|\s)(b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\w*)(?=\s|$)/i.test(q)) return 'bnb';
-    if (/(^|\s)agriturism\w*(?=\s|$)/i.test(q)) return 'agri';
-    if (/(^|\s)(hotel|alberg\w*)(?=\s|$)/i.test(q)) return 'hotel';
-    if (/(^|\s)(casa vacanze|case vacanze|appartament\w*)(?=\s|$)/i.test(q)) return 'apartment';
-    if (/(^|\s)ostell\w*(?=\s|$)/i.test(q)) return 'hostel';
+    for (const k of ['bnb', 'agri', 'hotel', 'apartment', 'hostel']) {
+      if (anyRe(KIND_RES[k], q)) return k;
+    }
     return null;
   }
   const wantedKind = () => kindFromQuery(state.query) || state.lodgingType || 'all';
   const matchesKind = r => { const w = wantedKind(); return w === 'all' || lodgingKind(r) === w; };
 
-  const LODGING_RE = /(^|\s)(b ?& ?b|bnb|b and b|bed|breakfast|affittacamer\w*|alloggi\w*|dormire|pernott\w*|guest ?house|camer[ae]|hotel|alberg\w*|ostell\w*|agriturism\w*|casa vacanze|case vacanze|appartament\w*)(?=\s|$)/i;
-  function isLodgingQuery(q) { return !!q && LODGING_RE.test(q); }
+  function isLodgingQuery(q) { return !!q && (anyRe(LODGING_GENERIC, q) || !!kindFromQuery(q)); }
 
   function matchesQuery(r, query) {
     if (!query) return true;
@@ -470,7 +499,7 @@ out center tags qt;`;
     if (normalize(r.cuisine).includes(nq)) return true;
 
     // 3) match per parole chiave -> cuisine class
-    for (const [cuisineClass, words] of Object.entries(CFG.cuisineKeywords)) {
+    for (const [cuisineClass, words] of cuisineKeywordsNorm()) {
       if (words.some(w => nq.includes(w))) {
         const cuisineNorm = normalize(r.cuisine);
         if (cuisineNorm.includes(cuisineClass)) return true;
@@ -479,6 +508,13 @@ out center tags qt;`;
       }
     }
     return false;
+  }
+
+  let _ckNorm = null;
+  function cuisineKeywordsNorm() {
+    if (!_ckNorm) _ckNorm = Object.entries(CFG.cuisineKeywords)
+      .map(([k, words]) => [k, words.map(normalize).filter(Boolean)]);
+    return _ckNorm;
   }
 
   function filterAndSort(list) {
@@ -531,11 +567,15 @@ out center tags qt;`;
   // comuni e in altri casi mostriamo la stringa raw.
   function parseOpeningHoursQuick(str) {
     if (!str) return { status: 'unknown', raw: '' };
-    if (/^24\/7/i.test(str.trim())) return { status: 'open', raw: str, label: 'Aperto 24/7' };
+    if (/^24\/7/i.test(str.trim())) return { status: 'open', raw: str, label: t('hours.247') };
     return { status: 'unknown', raw: str, label: str };
   }
 
   // -------------- DEEP LINKS -------------------------------
+  // "menu prezzi" -> "+menu+prezzi" (parole localizzate)
+  const plusWords = key => '+' + t(key).split(/\s+/).map(encodeURIComponent).join('+');
+  const bookingUrl = ss => `https://www.booking.com/searchresults.${I18N.bookingLocale()}.html?ss=${ss}`;
+
   function deepLinks(r) {
     const q = encodeURIComponent(r.name);
     const qWithCity = encodeURIComponent(`${r.name} ${state.cityName}`);
@@ -548,12 +588,12 @@ out center tags qt;`;
       deliveroo: `https://deliveroo.it/it/?searchQuery=${q}`,
       glovo: `https://glovoapp.com/it/it/?search=${q}`,
       thefork: `https://www.thefork.it/ricerca?cityName=${encodeURIComponent(state.cityName)}&searchText=${q}`,
-      googleSearch: `https://www.google.com/search?q=${qWithCity}+menu+prezzi`,
-      googleMenu: `https://www.google.com/search?q=${qWithCity}+menu`,
+      googleSearch: `https://www.google.com/search?q=${qWithCity}${plusWords('link.menuPrices')}`,
+      googleMenu: `https://www.google.com/search?q=${qWithCity}${plusWords('link.menu')}`,
       tripadvisor: `https://www.tripadvisor.it/Search?q=${qWithCity}`,
-      booking: `https://www.booking.com/searchresults.it.html?ss=${qWithCity}`,
+      booking: bookingUrl(qWithCity),
       airbnb: `https://www.airbnb.it/s/${encodeURIComponent(state.cityName)}/homes`,
-      googleHotel: `https://www.google.com/search?q=${qWithCity}+prezzi+camere`,
+      googleHotel: `https://www.google.com/search?q=${qWithCity}${plusWords('link.roomPrices')}`,
     };
     return links;
   }
@@ -565,7 +605,7 @@ out center tags qt;`;
   async function search() {
     const cityInput = $('#cityInput').value.trim();
     const query = $('#queryInput').value.trim();
-    if (!cityInput && !state.userPos) { toast('Scrivi una localit\u00E0 o usa "Posizione"'); return; }
+    if (!cityInput && !state.userPos) { toast(t('toast.needCity')); return; }
 
     const mySeq = ++searchSeq;
     setLoading(true);
@@ -590,10 +630,10 @@ out center tags qt;`;
       if (osmRes.error) {
         lastOsm = [];
         if (!userGen.length) throw osmRes.error;
-        state.warning = 'OpenStreetMap non risponde: mostro solo i locali registrati su RistoApp. Riprova tra poco per vedere gli altri.';
+        state.warning = { key: 'warn.osmUserOnly' };
       } else {
         lastOsm = osmRes.list;
-        if (osmRes.stale) state.warning = 'OpenStreetMap non risponde: mostro gli ultimi risultati salvati.';
+        if (osmRes.stale) state.warning = { key: 'warn.osmStale' };
       }
 
       // Alloggi: se entro il raggio scelto sono pochi, allarga fino a 15 km
@@ -614,7 +654,8 @@ out center tags qt;`;
       state.error = null;
     } catch (e) {
       if (mySeq !== searchSeq) return;
-      state.error = e.message || 'Errore durante la ricerca';
+      state.error = e.i18nKey ? { key: e.i18nKey, params: e.i18nParams }
+        : (e.message || { key: 'err.search' });
       state.restaurants = [];
     }
     setLoading(false);
@@ -647,35 +688,36 @@ out center tags qt;`;
     syncLodgingChips();
 
     // Titolo
-    const where = state.userPos ? 'posizione attuale' : state.cityName;
-    titleEl.innerHTML = state.query
-      ? `Locali che corrispondono a <em>"${escapeHtml(state.query)}"</em> a ${escapeHtml(where)}`
-      : `Locali a <em>${escapeHtml(where)}</em>`;
+    const tp = { q: escapeHtml(state.query), where: escapeHtml(state.cityName) };
+    titleEl.innerHTML = state.userPos
+      ? t(state.query ? 'results.titleQueryHere' : 'results.titleHere', tp)
+      : t(state.query ? 'results.titleQuery' : 'results.title', tp);
 
     // Conteggio
     if (state.error) {
       countEl.textContent = '';
       listEl.innerHTML = `<div class="empty">
-        <div class="empty-mark">ops</div>
-        <p><strong>${escapeHtml(state.error)}</strong></p>
-        <p>Riprova tra qualche istante o cambia localit\u00E0.</p>
+        <div class="empty-mark">${escapeHtml(t('results.errMark'))}</div>
+        <p><strong>${escapeHtml(msgText(state.error))}</strong></p>
+        <p>${escapeHtml(t('results.errRetry'))}</p>
       </div>`;
       return;
     }
 
-    countEl.textContent = `${filtered.length} ${filtered.length === 1 ? 'locale trovato' : 'locali trovati'}`;
+    countEl.textContent = t(filtered.length === 1 ? 'results.count.one' : 'results.count.other',
+      { n: I18N.fmtNum(filtered.length) });
 
     if (!filtered.length) {
       listEl.innerHTML = lodgingBannerHtml() + `<div class="empty">
-        <div class="empty-mark">non pervenuto</div>
-        <p><strong>Nessun locale trovato</strong></p>
-        <p>Prova a allargare il raggio, a cambiare il termine cercato o a selezionare "Tutti i locali".</p>
+        <div class="empty-mark">${escapeHtml(t('results.emptyMark'))}</div>
+        <p><strong>${escapeHtml(t('results.emptyTitle'))}</strong></p>
+        <p>${escapeHtml(t('results.emptyHint'))}</p>
       </div>`;
       return;
     }
 
     const warnHtml = state.warning
-      ? `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1"><p style="margin:0">${escapeHtml(state.warning)}</p></div>`
+      ? `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1"><p style="margin:0">${escapeHtml(msgText(state.warning))}</p></div>`
       : '';
     listEl.innerHTML = warnHtml + lodgingBannerHtml() + filtered.map((r, idx) => cardHtml(r, idx)).join('');
   }
@@ -689,27 +731,27 @@ out center tags qt;`;
       c.classList.toggle('is-active', c.dataset.lodging === k));
   }
 
-  const KIND_PLURAL = { bnb: 'B&B', agri: 'agriturismi', hotel: 'hotel', apartment: 'case vacanze', hostel: 'ostelli' };
 
   function lodgingBannerHtml() {
     if (!lodgingMode()) return '';
     const city = state.cityName || '';
-    const km = m => (m / 1000).toLocaleString('it-IT');
+    const km = m => I18N.fmtNum(m / 1000);
+    const kind = wantedKind() === 'all' ? 'bnb' : wantedKind();
     const widened = state.lodgingRadius && state.lodgingRadius > state.radius
-      ? `<p style="margin:0 0 8px"><strong>Pochi ${KIND_PLURAL[wantedKind()] || 'B&B'} entro ${km(state.radius)} km: mostro gli alloggi entro ${km(state.lodgingRadius)} km.</strong></p>` : '';
-    const b = `https://www.booking.com/searchresults.it.html?ss=${encodeURIComponent(city)}`;
+      ? `<p style="margin:0 0 8px"><strong>${escapeHtml(t('lodging.widened', { kind: t('kindpl.' + kind), r: km(state.radius), w: km(state.lodgingRadius) }))}</strong></p>` : '';
+    const b = bookingUrl(encodeURIComponent(city));
     const a = `https://www.airbnb.it/s/${encodeURIComponent(city)}/homes`;
     const ownerCta = `<aside class="owner-cta owner-cta--inline">
       <div class="owner-cta-text">
-        <div class="owner-cta-eyebrow">Sei il titolare di una struttura${city ? ' a ' + escapeHtml(city) : ''}?</div>
-        <div class="owner-cta-title" style="font-size:22px">Registrala gratis e fai conoscere il tuo <em>B&amp;B</em></div>
-        <p class="owner-cta-note">Camere e prezzi a notte, in cima ai risultati. Nessuna commissione.</p>
+        <div class="owner-cta-eyebrow">${city ? t('cta.inline.eyebrowCity', { city: escapeHtml(city) }) : escapeHtml(t('cta.inline.eyebrow'))}</div>
+        <div class="owner-cta-title" style="font-size:22px">${t('cta.inline.title')}</div>
+        <p class="owner-cta-note">${escapeHtml(t('cta.inline.note'))}</p>
       </div>
-      <button class="owner-cta-btn" data-owner-register>Registrati gratis</button>
+      <button class="owner-cta-btn" data-owner-register>${escapeHtml(t('cta.btn'))}</button>
     </aside>`;
     return ownerCta + `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
       ${widened}
-      <p style="margin:0 0 10px">Qui trovi le strutture registrate su OpenStreetMap. Per vedere <strong>tutti</strong> gli alloggi di ${escapeHtml(city)} con prezzi e disponibilit\u00E0:</p>
+      <p style="margin:0 0 10px">${t('lodging.portals', { city: escapeHtml(city) })}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <a class="portal-btn" href="${b}" target="_blank" rel="noopener"><span class="portal-name">Booking \u2197</span></a>
         <a class="portal-btn" href="${a}" target="_blank" rel="noopener"><span class="portal-name">Airbnb \u2197</span></a>
@@ -720,23 +762,23 @@ out center tags qt;`;
   function cardHtml(r, idx) {
     const links = deepLinks(r);
     const oh = parseOpeningHoursQuick(r.opening_hours);
-    const amenityLabel = CFG.amenityLabels[r.amenity] || 'Locale';
+    const amenityLabel = I18N.amenityLabel(r.amenity);
     const cuisineLabel = r.cuisine
       ? r.cuisine.split(';').slice(0,3).map(c => c.trim()).join(' \u00B7 ')
       : '';
     const distTxt = (r.distance != null)
-      ? `${r.distance < 1 ? Math.round(r.distance*1000) + ' m' : r.distance.toFixed(1) + ' km'}`
+      ? I18N.fmtDist(r.distance * 1000)
       : '';
 
     // Tag features
     const badges = [];
-    if (r.takeaway === 'yes')        badges.push('Asporto');
-    if (r.delivery === 'yes')        badges.push('Domicilio');
-    if (r.outdoor_seating === 'yes') badges.push('Tavoli all\u2019aperto');
-    if (r.wheelchair === 'yes')      badges.push('Accessibile');
-    if (r.vegetarian === 'yes')      badges.push('Vegetariano');
-    if (r.vegan === 'yes')           badges.push('Vegano');
-    if (r.gluten_free === 'yes')     badges.push('Senza glutine');
+    if (r.takeaway === 'yes')        badges.push(t('badge.takeaway'));
+    if (r.delivery === 'yes')        badges.push(t('badge.delivery'));
+    if (r.outdoor_seating === 'yes') badges.push(t('badge.outdoor'));
+    if (r.wheelchair === 'yes')      badges.push(t('badge.wheelchair'));
+    if (r.vegetarian === 'yes')      badges.push(t('badge.vegetarian'));
+    if (r.vegan === 'yes')           badges.push(t('badge.vegan'));
+    if (r.gluten_free === 'yes')     badges.push(t('badge.gluten_free'));
     const badgesHtml = badges.slice(0,4).map(b => `<span class="card-tag">${escapeHtml(b)}</span>`).join('');
 
     const hoursHtml = r.opening_hours
@@ -745,7 +787,7 @@ out center tags qt;`;
 
     // Link primari: sempre Maps + chiamata se disponibile
     const callBtn = links.call
-      ? `<a class="btn-outline" href="${links.call}">\u260E Chiama</a>`
+      ? `<a class="btn-outline" href="${links.call}">\u260E ${escapeHtml(t('card.call'))}</a>`
       : '';
 
     const isBnb = isLodging(r);
@@ -753,47 +795,47 @@ out center tags qt;`;
 
     // Deep link portali (sempre visibili come riga principale)
     const portalBtns = isBnb ? `
-      <a class="portal-btn" href="${links.booking}" target="_blank" rel="noopener" title="Cerca su Booking.com">
+      <a class="portal-btn" href="${links.booking}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Booking.com' }))}">
         <span class="portal-name">Booking</span>
       </a>
-      <a class="portal-btn" href="${links.airbnb}" target="_blank" rel="noopener" title="Alloggi in zona su Airbnb">
+      <a class="portal-btn" href="${links.airbnb}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.airbnbArea'))}">
         <span class="portal-name">Airbnb</span>
       </a>
-      <a class="portal-btn" href="${links.tripadvisor}" target="_blank" rel="noopener" title="Cerca su TripAdvisor">
+      <a class="portal-btn" href="${links.tripadvisor}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'TripAdvisor' }))}">
         <span class="portal-name">TripAdvisor</span>
       </a>
-      <a class="portal-btn" href="${links.googleHotel}" target="_blank" rel="noopener" title="Prezzi su Google">
-        <span class="portal-name">Prezzi</span>
+      <a class="portal-btn" href="${links.googleHotel}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.pricesGoogle'))}">
+        <span class="portal-name">${escapeHtml(t('portal.prices'))}</span>
       </a>` : `
-      <a class="portal-btn" href="${links.justEat}" target="_blank" rel="noopener" title="Cerca su JustEat">
+      <a class="portal-btn" href="${links.justEat}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'JustEat' }))}">
         <span class="portal-name">JustEat</span>
       </a>
-      <a class="portal-btn" href="${links.deliveroo}" target="_blank" rel="noopener" title="Cerca su Deliveroo">
+      <a class="portal-btn" href="${links.deliveroo}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Deliveroo' }))}">
         <span class="portal-name">Deliveroo</span>
       </a>
-      <a class="portal-btn" href="${links.thefork}" target="_blank" rel="noopener" title="Cerca su TheFork">
+      <a class="portal-btn" href="${links.thefork}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'TheFork' }))}">
         <span class="portal-name">TheFork</span>
       </a>
-      <a class="portal-btn" href="${links.glovo}" target="_blank" rel="noopener" title="Cerca su Glovo">
+      <a class="portal-btn" href="${links.glovo}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Glovo' }))}">
         <span class="portal-name">Glovo</span>
       </a>
-      <a class="portal-btn" href="${links.googleMenu}" target="_blank" rel="noopener" title="Cerca menu su Google">
-        <span class="portal-name">Menu</span>
+      <a class="portal-btn" href="${links.googleMenu}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.menuGoogle'))}">
+        <span class="portal-name">${escapeHtml(t('portal.menu'))}</span>
       </a>`;
 
     return `
       <article class="card ${r.userGenerated ? 'is-verified' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms">
-        ${r.userGenerated ? `<div class="verified-badge">\u2713 ${isLodging(r) ? 'Dati aggiornati dal titolare' : 'Menu aggiornato dal titolare'}</div>` : ''}
+        ${r.userGenerated ? `<div class="verified-badge">\u2713 ${escapeHtml(t(isLodging(r) ? 'card.verifiedLodging' : 'card.verifiedFood'))}</div>` : ''}
         <div class="card-top">
           <div>
             <h3 class="card-title">${escapeHtml(r.name)}</h3>
             <div class="card-type">
-              ${escapeHtml(r.type || (isBnb ? lodgingLabel(r) : amenityLabel))}${stars}${cuisineLabel && !r.userGenerated && !isBnb ? ' \u00B7 ' + escapeHtml(cuisineLabel) : ''}
+              ${escapeHtml(r.type ? I18N.typeLabel(r.type) : (isBnb ? lodgingLabel(r) : amenityLabel))}${stars}${cuisineLabel && !r.userGenerated && !isBnb ? ' \u00B7 ' + escapeHtml(cuisineLabel) : ''}
             </div>
           </div>
           ${r._dishMatch ? `
             <div class="card-price">
-              <span class="amount">\u20AC ${r._dishMatch.price.toFixed(2)}</span>
+              <span class="amount">${escapeHtml(I18N.fmtPrice(r._dishMatch.price))}</span>
               <span class="suffix">${escapeHtml(r._dishMatch.dish)}</span>
             </div>
           ` : (distTxt ? `<div class="dist-pill">${distTxt}</div>` : '')}
@@ -808,12 +850,12 @@ out center tags qt;`;
         <div class="card-actions">
           <a class="btn-ghost" href="${links.maps}" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            Mappa
+            ${escapeHtml(t('card.map'))}
           </a>
           ${callBtn}
           <button class="btn-outline" data-details="${escapeHtml(r.id)}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><circle cx="12" cy="8" r="0.5" fill="currentColor"/></svg>
-            ${isBnb ? (r.userGenerated ? 'Camere e parcheggi' : 'Info e parcheggi') : r.userGenerated ? 'Menu completo' : 'Info'}
+            ${escapeHtml(t(isBnb ? (r.userGenerated ? 'card.roomsParking' : 'card.infoParking') : r.userGenerated ? 'card.fullMenu' : 'card.info'))}
           </button>
         </div>
       </article>`;
@@ -823,35 +865,36 @@ out center tags qt;`;
   function openDetails(id) {
     const r = state.restaurants.find(x => x.id === id);
     if (!r) return;
+    openDetailsId = id;
     const links = deepLinks(r);
-    const amenityLabel = CFG.amenityLabels[r.amenity] || 'Locale';
+    const amenityLabel = I18N.amenityLabel(r.amenity);
 
     // Per ristoranti user-gen: menu completo + orari strutturati
     const userGenMenuHtml = r.userGenerated && Array.isArray(r.menu) && r.menu.length ? `
       <div class="modal-section">
-        <h4>${isLodging(r) ? 'Camere e prezzi a notte' : 'Menu e prezzi'}</h4>
+        <h4>${escapeHtml(t(isLodging(r) ? 'modal.rooms' : 'modal.menu'))}</h4>
         <ul class="menu-list">
           ${r.menu.slice().sort((a,b)=>a.price-b.price).map(m => {
             const isMatch = state.query && normalize(m.dish).includes(normalize(state.query));
             return `<li class="${isMatch ? 'is-match' : ''}">
               <span class="dish-name">${escapeHtml(m.dish)}</span>
-              <span class="dish-price">\u20AC ${m.price.toFixed(2)}</span>
+              <span class="dish-price">${escapeHtml(I18N.fmtPrice(m.price))}</span>
             </li>`;
           }).join('')}
         </ul>
       </div>` : '';
 
     const userGenHoursHtml = r.userGenerated && r.hoursByDay ? (() => {
-      const DAYS = ['Domenica','Luned\u00EC','Marted\u00EC','Mercoled\u00EC','Gioved\u00EC','Venerd\u00EC','Sabato'];
+      const DAYS = [0, 1, 2, 3, 4, 5, 6].map(i => t('day.' + i));
       const today = new Date().getDay();
       return `<div class="modal-section">
-        <h4>${isLodging(r) ? 'Orari reception / check-in' : 'Orari settimanali'}</h4>
+        <h4>${escapeHtml(t(isLodging(r) ? 'modal.hoursLodging' : 'modal.hoursWeek'))}</h4>
         <div class="hours-grid">
           ${DAYS.map((name, i) => {
             const ranges = r.hoursByDay[i] || [];
-            const txt = ranges.length ? ranges.join(' \u00B7 ') : 'Chiuso';
-            return `<div class="day">${name}${i===today?' <span class="today-mark">oggi</span>':''}</div>
-                    <div class="ranges ${ranges.length?'':'closed'}">${txt}</div>`;
+            const txt = ranges.length ? ranges.join(' \u00B7 ') : t('modal.closed');
+            return `<div class="day">${escapeHtml(name)}${i===today?` <span class="today-mark">${escapeHtml(t('modal.today'))}</span>`:''}</div>
+                    <div class="ranges ${ranges.length?'':'closed'}">${escapeHtml(txt)}</div>`;
           }).join('')}
         </div>
       </div>`;
@@ -859,15 +902,15 @@ out center tags qt;`;
 
     const paymentsHtml = r.userGenerated && r.payments?.length ? `
       <div class="modal-section">
-        <h4>Pagamenti accettati</h4>
+        <h4>${escapeHtml(t('modal.payments'))}</h4>
         <div class="card-payments">
-          ${r.payments.map(p => `<span class="pay-badge">${escapeHtml(p)}</span>`).join('')}
+          ${r.payments.map(p => `<span class="pay-badge">${escapeHtml(I18N.has('pay.' + p) ? t('pay.' + p) : p)}</span>`).join('')}
         </div>
       </div>` : '';
 
     const featuresHtml = r.userGenerated && r.features?.length ? `
       <div class="modal-section">
-        <h4>Caratteristiche</h4>
+        <h4>${escapeHtml(t('modal.features'))}</h4>
         <div class="card-tags">
           ${r.features.map(f => `<span class="card-tag">${escapeHtml(f)}</span>`).join('')}
         </div>
@@ -884,9 +927,9 @@ out center tags qt;`;
       <div class="modal-head">
         <div>
           <h3>${escapeHtml(r.name)}${r.userGenerated ? ' <span class="verified-inline">\u2713</span>' : ''}</h3>
-          <div class="card-type">${escapeHtml(r.type || (isLodging(r) ? lodgingLabel(r) : amenityLabel))}${r.cuisine && !r.userGenerated && !isLodging(r) ? ' \u00B7 ' + escapeHtml(r.cuisine) : ''}</div>
+          <div class="card-type">${escapeHtml(r.type ? I18N.typeLabel(r.type) : (isLodging(r) ? lodgingLabel(r) : amenityLabel))}${r.cuisine && !r.userGenerated && !isLodging(r) ? ' \u00B7 ' + escapeHtml(r.cuisine) : ''}</div>
         </div>
-        <button class="modal-close" id="modalCloseBtn" aria-label="Chiudi">
+        <button class="modal-close" id="modalCloseBtn" aria-label="${escapeHtml(t('modal.close'))}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
@@ -895,12 +938,12 @@ out center tags qt;`;
         ${userGenHoursHtml}
 
         <div class="modal-section">
-          <h4>Contatti e posizione</h4>
-          ${r.address ? `<p><strong>Indirizzo:</strong> ${escapeHtml(r.address)}</p>` : ''}
-          ${r.phone   ? `<p><strong>Telefono:</strong> <a href="tel:${r.phone.replace(/\s/g,'')}">${escapeHtml(r.phone)}</a></p>` : ''}
-          ${r.website ? `<p><strong>Sito:</strong> <a href="${escapeHtml(r.website)}" target="_blank" rel="noopener">${escapeHtml(r.website)}</a></p>` : ''}
+          <h4>${escapeHtml(t('modal.contacts'))}</h4>
+          ${r.address ? `<p><strong>${escapeHtml(t('modal.address'))}</strong> ${escapeHtml(r.address)}</p>` : ''}
+          ${r.phone   ? `<p><strong>${escapeHtml(t('modal.phone'))}</strong> <a href="tel:${r.phone.replace(/\s/g,'')}">${escapeHtml(r.phone)}</a></p>` : ''}
+          ${r.website ? `<p><strong>${escapeHtml(t('modal.site'))}</strong> <a href="${escapeHtml(r.website)}" target="_blank" rel="noopener">${escapeHtml(r.website)}</a></p>` : ''}
           <p style="margin-top:12px">
-            <a class="btn-outline" style="display:inline-flex;padding:10px 18px" href="${links.maps}" target="_blank" rel="noopener">Apri in Google Maps \u2197</a>
+            <a class="btn-outline" style="display:inline-flex;padding:10px 18px" href="${links.maps}" target="_blank" rel="noopener">${escapeHtml(t('modal.openMaps'))} \u2197</a>
           </p>
         </div>
 
@@ -909,54 +952,54 @@ out center tags qt;`;
 
         ${r.userGenerated ? '' : (r.opening_hours ? `
         <div class="modal-section">
-          <h4>Orari (come dichiarati su OpenStreetMap)</h4>
+          <h4>${escapeHtml(t('modal.osmHours'))}</h4>
           <p><code style="background:var(--c-bg-2);padding:6px 10px;border-radius:6px">${escapeHtml(r.opening_hours)}</code></p>
-          <p style="color:var(--c-muted);font-size:12px">Il formato \u00E8 quello standard OSM. Per orari aggiornati clicca "Mappa" o "Google".</p>
+          <p style="color:var(--c-muted);font-size:12px">${escapeHtml(t('modal.osmHoursNote'))}</p>
         </div>` : `
         <div class="modal-section">
-          <h4>Orari</h4>
-          <p style="color:var(--c-muted)">Non disponibili su OpenStreetMap. Verifica chiamando il locale o su Google Maps.</p>
+          <h4>${escapeHtml(t('modal.hours'))}</h4>
+          <p style="color:var(--c-muted)">${escapeHtml(t('modal.noHours'))}</p>
         </div>`)}
 
         ${isLodging(r) ? `
         <div class="modal-section">
-          <h4>Parcheggi vicini</h4>
-          <div id="parkingList" data-for="${escapeHtml(r.id)}"><p style="color:var(--c-muted)">Cerco i parcheggi in zona...</p></div>
+          <h4>${escapeHtml(t('modal.parking'))}</h4>
+          <div id="parkingList" data-for="${escapeHtml(r.id)}"><p style="color:var(--c-muted)">${escapeHtml(t('modal.parkingLoading'))}</p></div>
         </div>
         <div class="modal-section">
-          <h4>Prezzi e disponibilit\u00E0</h4>
-          <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">RistoApp non gestisce prenotazioni: verifica prezzi e disponibilit\u00E0 sui portali o contattando direttamente la struttura.</p>
+          <h4>${escapeHtml(t('modal.pricesAvail'))}</h4>
+          <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">${escapeHtml(t('modal.noBooking'))}</p>
           <div class="portals-grid">
             <a class="portal-btn lg" href="${links.booking}" target="_blank" rel="noopener">\uD83D\uDECF\uFE0F Booking.com</a>
-            <a class="portal-btn lg" href="${links.airbnb}" target="_blank" rel="noopener">\uD83C\uDFE0 Airbnb in zona</a>
+            <a class="portal-btn lg" href="${links.airbnb}" target="_blank" rel="noopener">\uD83C\uDFE0 ${escapeHtml(t('modal.airbnbArea'))}</a>
             <a class="portal-btn lg" href="${links.tripadvisor}" target="_blank" rel="noopener">\u2728 TripAdvisor</a>
-            <a class="portal-btn lg" href="${links.googleHotel}" target="_blank" rel="noopener">\uD83D\uDD0D Prezzi su Google</a>
+            <a class="portal-btn lg" href="${links.googleHotel}" target="_blank" rel="noopener">\uD83D\uDD0D ${escapeHtml(t('modal.pricesGoogle'))}</a>
           </div>
         </div>` : r.userGenerated ? '' : `
         <div class="modal-section">
-          <h4>Dove vedere menu e prezzi</h4>
-          <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">Per scelta \u2014 e per rispetto delle piattaforme \u2014 <strong>RistoApp non memorizza i prezzi</strong>. Clicca un portale per vedere menu e prezzi aggiornati del ristorante (se presente):</p>
+          <h4>${escapeHtml(t('modal.whereMenu'))}</h4>
+          <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">${t('modal.noPrices')}</p>
           <div class="portals-grid">
             <a class="portal-btn lg" href="${links.justEat}" target="_blank" rel="noopener">\uD83D\uDEF5 JustEat</a>
             <a class="portal-btn lg" href="${links.deliveroo}" target="_blank" rel="noopener">\uD83C\uDF54 Deliveroo</a>
             <a class="portal-btn lg" href="${links.glovo}" target="_blank" rel="noopener">\uD83D\uDED2 Glovo</a>
             <a class="portal-btn lg" href="${links.thefork}" target="_blank" rel="noopener">\uD83C\uDF74 TheFork</a>
-            <a class="portal-btn lg" href="${links.googleMenu}" target="_blank" rel="noopener">\uD83D\uDD0D Menu su Google</a>
+            <a class="portal-btn lg" href="${links.googleMenu}" target="_blank" rel="noopener">\uD83D\uDD0D ${escapeHtml(t('modal.menuGoogle'))}</a>
             <a class="portal-btn lg" href="${links.tripadvisor}" target="_blank" rel="noopener">\u2728 TripAdvisor</a>
           </div>
         </div>`}
 
         ${tagsList ? `
         <div class="modal-section">
-          <h4>Altre informazioni (da OpenStreetMap)</h4>
+          <h4>${escapeHtml(t('modal.otherInfo'))}</h4>
           <table class="tag-table">${tagsList}</table>
         </div>` : ''}
 
         <div class="modal-section" style="border-top:1px solid var(--c-line);padding-top:14px">
           <p style="color:var(--c-muted);font-size:12px;margin:0">
             ${r.userGenerated
-              ? `Dati forniti direttamente dal titolare del locale.`
-              : `Dati: <a href="https://www.openstreetmap.org/${r.id}" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL).`}
+              ? escapeHtml(t('modal.ownerData'))
+              : t('modal.osmData', { url: 'https://www.openstreetmap.org/' + escapeHtml(r.id) })}
           </p>
         </div>
       </div>`;
@@ -967,7 +1010,7 @@ out center tags qt;`;
       const from = { lat: r.lat, lng: r.lng };
       findParkingNear(from)
         .then(list => parkingHtml(from, list))
-        .catch(() => `<p style="color:var(--c-muted)">Parcheggi non disponibili al momento. Riprova tra poco.</p>`)
+        .catch(() => `<p style="color:var(--c-muted)">${escapeHtml(t('park.error'))}</p>`)
         .then(html => {
           const el = $('#parkingList');
           if (el && el.dataset.for === r.id) el.innerHTML = html; // il dettaglio \u00E8 ancora aperto
@@ -975,7 +1018,8 @@ out center tags qt;`;
     }
   }
 
-  function closeModal() { $('#modalBackdrop').classList.remove('is-open'); }
+  let openDetailsId = null;
+  function closeModal() { openDetailsId = null; $('#modalBackdrop').classList.remove('is-open'); }
 
   // -------------- TOAST -----------------------------------
   let toastTimer;
@@ -989,8 +1033,8 @@ out center tags qt;`;
 
   // -------------- GEOLOCALIZZAZIONE -----------------------
   function useGeolocation() {
-    if (!navigator.geolocation) { toast('Geolocalizzazione non supportata'); return; }
-    toast('Sto cercando la tua posizione...');
+    if (!navigator.geolocation) { toast(t('toast.geoUnsupported')); return; }
+    toast(t('toast.geoLocating'));
     navigator.geolocation.getCurrentPosition(
       async pos => {
         state.userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
@@ -1008,11 +1052,11 @@ out center tags qt;`;
           state.cityName = display;
           $('#cityInput').value = display;
         }
-        toast('Posizione rilevata. Cerco locali in zona...');
+        toast(t('toast.geoFound'));
         search();
       },
       err => {
-        const msg = err.code === 1 ? 'Permesso di geolocalizzazione negato' : 'Impossibile ottenere la posizione';
+        const msg = t(err.code === 1 ? 'toast.geoDenied' : 'toast.geoFail');
         toast(msg);
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -1126,6 +1170,12 @@ out center tags qt;`;
           .catch(()=>{});
       });
     }
+
+    // Cambio lingua: ridisegna risultati e dettaglio aperto senza ricaricare
+    I18N.onChange(() => {
+      if (!state.loading) renderResults(); else syncLodgingChips();
+      if (openDetailsId && $('#modalBackdrop').classList.contains('is-open')) openDetails(openDetailsId);
+    });
 
     // Prima ricerca automatica sulla citt\u00E0 di default
     search();

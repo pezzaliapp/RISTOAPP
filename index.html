@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./css/styles.css?v=4.9.0" />
+  <link rel="stylesheet" href="./css/styles.css?v=5.0.0" />
 </head>
 <body>
 
@@ -52,15 +52,27 @@
     <div class="brand">
       <div>
         <div class="brand-mark">RistoApp</div>
-        <div class="brand-tag">Mangia &middot; Dormi &middot; Parcheggia</div>
+        <div class="brand-tag" data-i18n="brand.tag">Mangia &middot; Dormi &middot; Parcheggia</div>
       </div>
     </div>
     <div class="header-actions">
-      <button class="owner-entry-btn" id="ownerBtn" title="Hai un ristorante o un B&amp;B? Registralo gratis">
+      <label class="lang-pick" data-i18n-title="lang.label">
+        <span class="lang-code" id="langCode" aria-hidden="true">IT</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+        <select id="langSelect" aria-label="Lingua" data-i18n-aria-label="lang.label">
+          <option value="it">IT &middot; Italiano</option>
+          <option value="en">EN &middot; English</option>
+          <option value="es">ES &middot; Espa&ntilde;ol</option>
+          <option value="de">DE &middot; Deutsch</option>
+          <option value="fr">FR &middot; Fran&ccedil;ais</option>
+          <option value="ja">JA &middot; 日本語</option>
+        </select>
+      </label>
+      <button class="owner-entry-btn" id="ownerBtn" title="Hai un ristorante o un B&amp;B? Registralo gratis" data-i18n-title="header.ownerTitle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2V11z"/></svg>
-        <span>Registrati gratis</span>
+        <span data-i18n="header.register">Registrati gratis</span>
       </button>
-      <button class="icon-btn" id="installBtn" aria-label="Installa app" title="Installa come app">
+      <button class="icon-btn" id="installBtn" aria-label="Installa app" title="Installa come app" data-i18n-aria-label="header.installAria" data-i18n-title="header.installTitle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
     </div>
@@ -68,8 +80,8 @@
 
   <!-- HERO + RICERCA -->
   <section class="hero">
-    <h1 class="hero-title">Dove <em>mangiare</em>, dormire e parcheggiare</h1>
-    <p class="hero-sub">Ristoranti, pizzerie, bar, B&amp;B, agriturismi e hotel in tutta Italia, con i parcheggi pi&ugrave; vicini. Vai dritto a menu, prezzi e disponibilit&agrave; su JustEat, TheFork, Booking e Airbnb.</p>
+    <h1 class="hero-title" data-i18n-html="hero.title">Dove <em>mangiare</em>, dormire e parcheggiare</h1>
+    <p class="hero-sub" data-i18n="hero.sub">Ristoranti, pizzerie, bar, B&amp;B, agriturismi e hotel in tutta Italia, con i parcheggi pi&ugrave; vicini. Vai dritto a menu, prezzi e disponibilit&agrave; su JustEat, TheFork, Booking e Airbnb.</p>
 
     <div class="search-card">
       <div class="field">
@@ -77,8 +89,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         </div>
         <div class="field-body">
-          <label for="queryInput">Piatto o tipo cucina</label>
-          <input id="queryInput" type="text" placeholder="es. pizza, sushi, trattoria, B&amp;B..." autocomplete="off" />
+          <label for="queryInput" data-i18n="search.queryLabel">Piatto o tipo cucina</label>
+          <input id="queryInput" type="text" placeholder="es. pizza, sushi, trattoria, B&amp;B..." data-i18n-placeholder="search.queryPh" autocomplete="off" />
         </div>
       </div>
 
@@ -87,66 +99,66 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </div>
         <div class="field-body">
-          <label for="cityInput">Localit&agrave;</label>
-          <input id="cityInput" type="text" list="cityOptions" placeholder="Qualsiasi citt&agrave; italiana" autocomplete="off" />
+          <label for="cityInput" data-i18n="search.cityLabel">Localit&agrave;</label>
+          <input id="cityInput" type="text" list="cityOptions" placeholder="Qualsiasi citt&agrave; italiana" data-i18n-placeholder="search.cityPh" autocomplete="off" />
           <datalist id="cityOptions"></datalist>
         </div>
       </div>
 
-      <button class="btn-geo" id="geoBtn" title="Usa la mia posizione">
+      <button class="btn-geo" id="geoBtn" title="Usa la mia posizione" data-i18n-title="search.geoTitle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-        Posizione
+        <span data-i18n="search.geo">Posizione</span>
       </button>
 
       <button class="btn-primary" id="searchBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        Cerca
+        <span data-i18n="search.btn">Cerca</span>
       </button>
     </div>
 
     <!-- INVITO AI TITOLARI -->
     <aside class="owner-cta" id="registrati" aria-labelledby="ownerCtaTitle">
       <div class="owner-cta-text">
-        <div class="owner-cta-eyebrow">Hai un B&amp;B, un agriturismo o un ristorante?</div>
-        <h2 class="owner-cta-title" id="ownerCtaTitle">Registra gratis la tua attivit&agrave; e fai conoscere il tuo <em>B&amp;B</em></h2>
+        <div class="owner-cta-eyebrow" data-i18n="cta.eyebrow">Hai un B&amp;B, un agriturismo o un ristorante?</div>
+        <h2 class="owner-cta-title" id="ownerCtaTitle" data-i18n-html="cta.title">Registra gratis la tua attivit&agrave; e fai conoscere il tuo <em>B&amp;B</em></h2>
         <ol class="owner-cta-steps">
-          <li><strong>Crea un account</strong> con la tua email</li>
-          <li><strong>Inserisci la struttura</strong>: camere, prezzi a notte, servizi</li>
-          <li><strong>Compari in cima</strong> alle ricerche, col segno &#10003; del titolare</li>
+          <li data-i18n-html="cta.step1"><strong>Crea un account</strong> con la tua email</li>
+          <li data-i18n-html="cta.step2"><strong>Inserisci la struttura</strong>: camere, prezzi a notte, servizi</li>
+          <li data-i18n-html="cta.step3"><strong>Compari in cima</strong> alle ricerche, col segno &#10003; del titolare</li>
         </ol>
-        <p class="owner-cta-note">Gratis per sempre &middot; Nessuna commissione &middot; Gli ospiti ti contattano direttamente</p>
+        <p class="owner-cta-note" data-i18n="cta.note">Gratis per sempre &middot; Nessuna commissione &middot; Gli ospiti ti contattano direttamente</p>
       </div>
-      <button class="owner-cta-btn" data-owner-register>Registrati gratis</button>
+      <button class="owner-cta-btn" data-owner-register data-i18n="cta.btn">Registrati gratis</button>
     </aside>
   </section>
 
   <!-- FILTRI -->
-  <section class="filters" aria-label="Tipo di locale">
-    <span class="filter-label">Tipo</span>
+  <section class="filters" aria-label="Tipo di locale" data-i18n-aria-label="filters.typeAria">
+    <span class="filter-label" data-i18n="filters.type">Tipo</span>
     <div id="amenityChips" style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="chip is-active" data-amenity="all">Tutti</button>
-      <button class="chip" data-amenity="restaurant">Ristoranti</button>
-      <button class="chip" data-amenity="fast_food">Pizzerie / fast food</button>
-      <button class="chip" data-amenity="cafe">Caff&egrave;</button>
-      <button class="chip" data-amenity="bar">Bar</button>
-      <button class="chip" data-amenity="pub">Pub</button>
-      <button class="chip" data-amenity="ice_cream">Gelaterie</button>
-      <button class="chip" data-amenity="lodging">Dormire</button>
+      <button class="chip is-active" data-amenity="all" data-i18n="chip.all">Tutti</button>
+      <button class="chip" data-amenity="restaurant" data-i18n="chip.restaurant">Ristoranti</button>
+      <button class="chip" data-amenity="fast_food" data-i18n="chip.fast_food">Pizzerie / fast food</button>
+      <button class="chip" data-amenity="cafe" data-i18n="chip.cafe">Caff&egrave;</button>
+      <button class="chip" data-amenity="bar" data-i18n="chip.bar">Bar</button>
+      <button class="chip" data-amenity="pub" data-i18n="chip.pub">Pub</button>
+      <button class="chip" data-amenity="ice_cream" data-i18n="chip.ice_cream">Gelaterie</button>
+      <button class="chip" data-amenity="lodging" data-i18n="chip.lodging">Dormire</button>
     </div>
   </section>
-  <section class="filters" id="lodgingFilters" aria-label="Tipo di alloggio" style="display:none">
-    <span class="filter-label">Alloggio</span>
+  <section class="filters" id="lodgingFilters" aria-label="Tipo di alloggio" data-i18n-aria-label="filters.lodgingAria" style="display:none">
+    <span class="filter-label" data-i18n="filters.lodging">Alloggio</span>
     <div id="lodgingChips" style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="chip is-active" data-lodging="all">Tutti</button>
-      <button class="chip" data-lodging="bnb">B&amp;B</button>
-      <button class="chip" data-lodging="agri">Agriturismi</button>
-      <button class="chip" data-lodging="hotel">Hotel</button>
-      <button class="chip" data-lodging="apartment">Case vacanze</button>
-      <button class="chip" data-lodging="hostel">Ostelli</button>
+      <button class="chip is-active" data-lodging="all" data-i18n="lchip.all">Tutti</button>
+      <button class="chip" data-lodging="bnb" data-i18n="lchip.bnb">B&amp;B</button>
+      <button class="chip" data-lodging="agri" data-i18n="lchip.agri">Agriturismi</button>
+      <button class="chip" data-lodging="hotel" data-i18n="lchip.hotel">Hotel</button>
+      <button class="chip" data-lodging="apartment" data-i18n="lchip.apartment">Case vacanze</button>
+      <button class="chip" data-lodging="hostel" data-i18n="lchip.hostel">Ostelli</button>
     </div>
   </section>
   <section class="filters">
-    <span class="filter-label">Raggio</span>
+    <span class="filter-label" data-i18n="filters.radius">Raggio</span>
     <select id="radiusSelect" class="sort-select">
       <option value="1000">1 km</option>
       <option value="3000" selected>3 km</option>
@@ -154,16 +166,16 @@
       <option value="10000">10 km</option>
     </select>
     <select id="sortSelect" class="sort-select" style="margin-left:auto">
-      <option value="distance">Pi&ugrave; vicini</option>
-      <option value="name">Nome A-Z</option>
-      <option value="open">Prima quelli con orari</option>
+      <option value="distance" data-i18n="sort.distance">Pi&ugrave; vicini</option>
+      <option value="name" data-i18n="sort.name">Nome A-Z</option>
+      <option value="open" data-i18n="sort.open">Prima quelli con orari</option>
     </select>
   </section>
 
   <!-- LOADING -->
   <div id="loading" class="loading-banner" style="display:none">
     <div class="spinner"></div>
-    <span>Cerco locali reali su OpenStreetMap...</span>
+    <span data-i18n="loading">Cerco locali reali su OpenStreetMap...</span>
   </div>
 
   <!-- RISULTATI -->
@@ -177,8 +189,8 @@
 
   <!-- FOOTER -->
   <footer class="app-footer">
-    <p><strong>RistoApp</strong> &middot; Dati dei locali: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">&copy; OpenStreetMap contributors</a> (licenza ODbL).</p>
-    <p>RistoApp non memorizza men&ugrave;, prezzi o prenotazioni. I bottoni JustEat, Deliveroo, TheFork, Glovo, Booking e Airbnb aprono la ricerca sui rispettivi portali ufficiali.</p>
+    <p data-i18n-html="footer.data"><strong>RistoApp</strong> &middot; Dati dei locali: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">&copy; OpenStreetMap contributors</a> (licenza ODbL).</p>
+    <p data-i18n="footer.note">RistoApp non memorizza men&ugrave;, prezzi o prenotazioni. I bottoni JustEat, Deliveroo, TheFork, Glovo, Booking e Airbnb aprono la ricerca sui rispettivi portali ufficiali.</p>
   </footer>
 
   <!-- MODAL -->
@@ -188,19 +200,20 @@
 
   <!-- INSTALL BANNER -->
   <div class="install-banner" id="installBanner">
-    <span>Installa RistoApp sul telefono per un accesso rapido.</span>
-    <button id="installBannerBtn">Installa</button>
+    <span data-i18n="install.text">Installa RistoApp sul telefono per un accesso rapido.</span>
+    <button id="installBannerBtn" data-i18n="install.btn">Installa</button>
   </div>
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="./js/data.js?v=4.9.0"></script>
+  <script src="./js/i18n.js?v=5.0.0"></script>
+  <script src="./js/data.js?v=5.0.0"></script>
   <!-- Firebase SDK (compat) - Fase 2 backend condiviso -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="./js/store.js?v=4.9.0"></script>
-  <script src="./js/owner.js?v=4.9.0"></script>
-  <script src="./js/app.js?v=4.9.0"></script>
+  <script src="./js/store.js?v=5.0.0"></script>
+  <script src="./js/owner.js?v=5.0.0"></script>
+  <script src="./js/app.js?v=5.0.0"></script>
 </body>
 </html>

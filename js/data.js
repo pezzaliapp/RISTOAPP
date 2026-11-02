@@ -29,21 +29,50 @@ const RISTOAPP_CONFIG = {
   ],
 
   // Parole chiave che riconosciamo come "tipo cucina" per filtrare
-  // i ristoranti via tag OSM `cuisine`.
+  // i ristoranti via tag OSM `cuisine`. Oltre all'italiano: inglese,
+  // spagnolo, tedesco, francese e giapponese (confronto per sottostringa,
+  // senza accenti: vedi normalize() in app.js).
   cuisineKeywords: {
-    pizza:        ['pizza','margherita','marinara','diavola','calzone','bufalina','capricciosa','napoletana','focaccia'],
-    italian:      ['pasta','spaghetti','tagliatelle','lasagne','ravioli','cappelletti','tortellini','gnocchi','risotto','carbonara','amatriciana','bolognese','italiano','trattoria','osteria','vincisgrassi'],
-    seafood:      ['pesce','cozze','vongole','brodetto','frutti di mare','scampi','gamberi'],
-    japanese:     ['sushi','ramen','giapponese','tempura','nigiri','sashimi'],
-    chinese:      ['cinese','involtini','riso alla cantonese'],
-    kebab:        ['kebab','doner','shawarma'],
-    burger:       ['burger','hamburger','cheeseburger'],
-    regional:     ['tipico','tradizionale','casalingo'],
-    vegetarian:   ['vegetariano','vegano','vegan','veggie'],
-    mexican:      ['tacos','burrito','messicano','fajitas','nachos'],
-    indian:       ['indiano','curry','naan','tikka','tandoori'],
-    ice_cream:    ['gelato','gelateria'],
-    coffee_shop:  ['caff\u00E8','caffetteria','cappuccino','espresso'],
+    pizza:        ['pizza','margherita','marinara','diavola','calzone','bufalina','capricciosa','napoletana','focaccia',
+                   'pizzer\u00EDa','\u30D4\u30B6','\u30D4\u30C3\u30C4\u30A1'],                       // ピザ ピッツァ
+    italian:      ['pasta','spaghetti','tagliatelle','lasagne','ravioli','cappelletti','tortellini','gnocchi','risotto','carbonara','amatriciana','bolognese','italiano','trattoria','osteria','vincisgrassi',
+                   'italian','italienisch','italien',
+                   '\u30D1\u30B9\u30BF','\u30A4\u30BF\u30EA\u30A2\u30F3','\u30A4\u30BF\u30EA\u30A2\u6599\u7406','\u30EA\u30BE\u30C3\u30C8'], // パスタ イタリアン イタリア料理 リゾット
+    seafood:      ['pesce','cozze','vongole','brodetto','frutti di mare','scampi','gamberi',
+                   'fish','seafood','prawn','shrimp','mussel','clam',
+                   'pescado','marisco','gambas',
+                   'fisch','meeresfr\u00FCchte','garnelen',
+                   'poisson','fruits de mer','crevette','moule',
+                   '\u9B5A','\u6D77\u9BAE','\u30B7\u30FC\u30D5\u30FC\u30C9'],                    // 魚 海鮮 シーフード
+    japanese:     ['sushi','ramen','giapponese','tempura','nigiri','sashimi',
+                   'japanese','japon\u00E9s','japonesa','japanisch','japonais',
+                   '\u5BFF\u53F8','\u3059\u3057','\u30E9\u30FC\u30E1\u30F3','\u548C\u98DF','\u65E5\u672C\u6599\u7406','\u5929\u3077\u3089'], // 寿司 すし ラーメン 和食 日本料理 天ぷら
+    chinese:      ['cinese','involtini','riso alla cantonese',
+                   'chinese','comida china','chinesisch','chinois',
+                   '\u4E2D\u83EF','\u4E2D\u56FD\u6599\u7406'],                                 // 中華 中国料理
+    kebab:        ['kebab','doner','shawarma','d\u00F6ner','\u30B1\u30D0\u30D6'],               // ケバブ
+    burger:       ['burger','hamburger','cheeseburger','hamburguesa','\u30CF\u30F3\u30D0\u30FC\u30AC\u30FC','\u30D0\u30FC\u30AC\u30FC'], // ハンバーガー バーガー
+    regional:     ['tipico','tradizionale','casalingo',
+                   'typical','traditional','local food','home cooking',
+                   't\u00EDpico','tradicional','casero',
+                   'traditionell','regional','hausmannskost',
+                   'typique','traditionnel','fait maison',
+                   '\u90F7\u571F\u6599\u7406','\u5BB6\u5EAD\u6599\u7406'],                     // 郷土料理 家庭料理
+    vegetarian:   ['vegetariano','vegano','vegan','veggie',
+                   'vegetarian','vegetarisch','v\u00E9g\u00E9tarien','v\u00E9g\u00E9',
+                   '\u30D9\u30B8\u30BF\u30EA\u30A2\u30F3','\u30F4\u30A3\u30FC\u30AC\u30F3','\u83DC\u98DF'], // ベジタリアン ヴィーガン 菜食
+    mexican:      ['tacos','burrito','messicano','fajitas','nachos',
+                   'mexican','mexicano','mexikanisch','mexicain',
+                   '\u30E1\u30AD\u30B7\u30B3','\u30BF\u30B3\u30B9'],                           // メキシコ タコス
+    indian:       ['indiano','curry','naan','tikka','tandoori',
+                   'indian','india','indisch','indien',
+                   '\u30A4\u30F3\u30C9','\u30AB\u30EC\u30FC'],                                 // インド カレー
+    ice_cream:    ['gelato','gelateria',
+                   'ice cream','helado','helader\u00EDa','eiscreme','eisdiele','speiseeis','glace','glacier',
+                   '\u30B8\u30A7\u30E9\u30FC\u30C8','\u30A2\u30A4\u30B9'],                     // ジェラート アイス
+    coffee_shop:  ['caff\u00E8','caffetteria','cappuccino','espresso',
+                   'coffee','caf\u00E9','cafeter\u00EDa','kaffee',
+                   '\u30B3\u30FC\u30D2\u30FC','\u30AB\u30D5\u30A7'],                           // コーヒー カフェ
   },
 
   amenityLabels: {

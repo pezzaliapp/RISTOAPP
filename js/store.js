@@ -21,6 +21,9 @@
  * ============================================================ */
 
 (() => {
+  // Messaggi tradotti (i18n.js e' caricato prima; fallback alla chiave)
+  const t = (k, p) => (window.I18N ? window.I18N.t(k, p) : k);
+
   const firebaseConfig = {
     apiKey:            'AIzaSyDOat9cV39fu1OxVIn1tGFuDe_Owd5Er20',
     authDomain:        'ristoapp-b4215.firebaseapp.com',
@@ -34,7 +37,7 @@
     console.error('Firebase SDK non caricato (rete o blocco pubblicit\u00E0).');
     // Store "vuoto": la ricerca funziona lo stesso, l'area ristoratori
     // mostra un errore chiaro invece di bloccarsi.
-    const offline = () => Promise.reject(new Error('Servizio account non raggiungibile. Controlla la connessione o disattiva il blocco pubblicit\u00E0 e ricarica la pagina.'));
+    const offline = () => Promise.reject(new Error(t('auth.offline')));
     window.RistoStore = {
       authReady: Promise.resolve(),
       register: offline, login: offline, logout: async () => {},
@@ -75,13 +78,14 @@
       lat: r.lat, lng: r.lng,
       address: r.address || '', phone: r.phone || '', website: r.website || '',
       facebook: '', instagram: '', opening_hours: '',
-      takeaway:        feats.some(f => /asporto/i.test(f)) ? 'yes' : '',
-      delivery:        feats.some(f => /domicilio|delivery/i.test(f)) ? 'yes' : '',
-      outdoor_seating: feats.some(f => /terrazza|dehors|aperto/i.test(f)) ? 'yes' : '',
-      wheelchair:      feats.some(f => /accessibil/i.test(f)) ? 'yes' : '',
-      vegetarian:      feats.some(f => /vegetarian/i.test(f)) ? 'yes' : '',
-      vegan:           feats.some(f => /vegan/i.test(f)) ? 'yes' : '',
-      gluten_free:     feats.some(f => /gluten|senza glutine/i.test(f)) ? 'yes' : '',
+      // caratteristiche scritte dal titolare, in qualsiasi lingua dell'app
+      takeaway:        feats.some(f => /asporto|take ?away|para llevar|mitnehmen|emporter|\u30C6\u30A4\u30AF\u30A2\u30A6\u30C8|\u6301\u3061\u5E30\u308A/i.test(f)) ? 'yes' : '',
+      delivery:        feats.some(f => /domicilio|delivery|lieferung|livraison|\u30C7\u30EA\u30D0\u30EA\u30FC|\u914D\u9054/i.test(f)) ? 'yes' : '',
+      outdoor_seating: feats.some(f => /terrazza|dehors|aperto|terrace|outdoor|terraza|terrasse|\u30C6\u30E9\u30B9/i.test(f)) ? 'yes' : '',
+      wheelchair:      feats.some(f => /accessib|barrierefrei|\u30D0\u30EA\u30A2\u30D5\u30EA\u30FC|\u8ECA\u6905\u5B50/i.test(f)) ? 'yes' : '',
+      vegetarian:      feats.some(f => /vegetarian|vegetarisch|v[e\u00E9]g[e\u00E9]tarien|\u30D9\u30B8\u30BF\u30EA\u30A2\u30F3/i.test(f)) ? 'yes' : '',
+      vegan:           feats.some(f => /vegan|v[e\u00E9]gan|\u30F4\u30A3\u30FC\u30AC\u30F3|\u30D3\u30FC\u30AC\u30F3/i.test(f)) ? 'yes' : '',
+      gluten_free:     feats.some(f => /gluten|senza glutine|sin gluten|glutenfrei|sans gluten|\u30B0\u30EB\u30C6\u30F3/i.test(f)) ? 'yes' : '',
       payments: r.payments || [],
       rawTags: TYPE_TO_LODGING_KIND[r.type]
         ? { name: r.name, guest_house: TYPE_TO_LODGING_KIND[r.type] }
@@ -123,8 +127,8 @@
 
     async register(email, password, ristoratoreName) {
       email = (email || '').trim().toLowerCase();
-      if (!email || !password) throw new Error('Email e password obbligatorie');
-      if (password.length < 6) throw new Error('Password troppo corta (min 6 caratteri)');
+      if (!email || !password) throw new Error(t('auth.required'));
+      if (password.length < 6) throw new Error(t('auth.tooShort'));
       try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
         if (ristoratoreName) {
@@ -165,7 +169,7 @@
 
     async saveRestaurant(r) {
       const u = currentUserObj;
-      if (!u) throw new Error('Devi essere autenticato');
+      if (!u) throw new Error(t('auth.notLoggedIn'));
       const payload = {
         name:     r.name,
         type:     r.type,
@@ -188,8 +192,8 @@
         return { id: ref.id, ...payload };
       } else {
         const existing = await db.collection(RESTAURANTS).doc(r.id).get();
-        if (!existing.exists) throw new Error('Locale non trovato');
-        if (existing.data().owner !== u.uid) throw new Error('Non sei il proprietario di questo locale');
+        if (!existing.exists) throw new Error(t('auth.notFound'));
+        if (existing.data().owner !== u.uid) throw new Error(t('auth.notOwner'));
         await db.collection(RESTAURANTS).doc(r.id).update(payload);
         return { id: r.id, ...payload };
       }
@@ -197,7 +201,7 @@
 
     async deleteRestaurant(id) {
       const u = currentUserObj;
-      if (!u) throw new Error('Devi essere autenticato');
+      if (!u) throw new Error(t('auth.notLoggedIn'));
       await db.collection(RESTAURANTS).doc(id).delete();
     },
 
@@ -210,15 +214,15 @@
   function friendlyAuthError(e) {
     const code = e?.code || '';
     switch (code) {
-      case 'auth/email-already-in-use':  return 'Email gi\u00E0 registrata. Prova ad accedere.';
-      case 'auth/invalid-email':         return 'Email non valida.';
-      case 'auth/weak-password':         return 'Password troppo debole (min 6 caratteri).';
-      case 'auth/user-not-found':        return 'Email non trovata.';
+      case 'auth/email-already-in-use':  return t('auth.emailInUse');
+      case 'auth/invalid-email':         return t('auth.invalidEmail');
+      case 'auth/weak-password':         return t('auth.weakPassword');
+      case 'auth/user-not-found':        return t('auth.userNotFound');
       case 'auth/wrong-password':
-      case 'auth/invalid-credential':    return 'Email o password errate.';
-      case 'auth/too-many-requests':     return 'Troppi tentativi. Riprova tra qualche minuto.';
-      case 'auth/network-request-failed':return 'Errore di rete. Controlla la connessione.';
-      default: return e?.message || 'Errore di autenticazione.';
+      case 'auth/invalid-credential':    return t('auth.wrongPassword');
+      case 'auth/too-many-requests':     return t('auth.tooMany');
+      case 'auth/network-request-failed':return t('auth.network');
+      default: return e?.message || t('auth.generic');
     }
   }
 

@@ -96,7 +96,52 @@ a { color: inherit; }
 @media (max-width: 520px) {
   .brand-tag { font-size: 9px; letter-spacing: .12em; }
 }
-.header-actions { display: flex; gap: 8px; }
+.header-actions { display: flex; gap: 8px; align-items: center; }
+
+/* Selettore lingua: <select> nativo trasparente sopra la pillola "IT ▾" */
+.lang-pick {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 3px;
+  height: 40px; padding: 0 10px 0 12px;
+  border-radius: 999px;
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  font-size: 12px; font-weight: 700; letter-spacing: .06em;
+  color: var(--c-ink);
+  cursor: pointer;
+  transition: background .2s, border-color .2s;
+}
+.lang-pick:hover { background: #fff; border-color: var(--c-accent); }
+.lang-pick:focus-within { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.lang-pick svg { width: 12px; height: 12px; opacity: .7; }
+.lang-pick select {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0; cursor: pointer;
+  border: 0; font-size: 16px; /* niente zoom su iOS */
+  -webkit-appearance: none; appearance: none;
+}
+/* Giapponese: stessa altezza di riga dell'italiano (font di sistema CJK) */
+html[lang="ja"] .brand-tag { line-height: 14px; }
+/* Giapponese: niente a capo a meta' parola nel titolo (solo dopo 、) */
+html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .brand, .icon-btn { flex-shrink: 0; }
+  .header-actions { min-height: 50px; min-width: 0; }
+  html[lang="ja"] .brand-tag { line-height: 12px; }
+}
+@media (max-width: 420px) {
+  .app-header { gap: 10px; }
+  .header-actions { gap: 6px; }
+  .lang-pick { padding: 0 6px 0 9px; gap: 2px; }
+  .lang-pick svg { width: 10px; height: 10px; }
+}
+@media (max-width: 380px) {
+  .app-header { padding-left: 14px; padding-right: 14px; }
+  .brand-mark { font-size: 26px; }
+  .brand-tag { letter-spacing: .06em; }
+}
 .icon-btn {
   width: 40px; height: 40px;
   border-radius: 50%;
@@ -729,6 +774,7 @@ a { color: inherit; }
   padding: 14px 10px;
   font-size: 14px;
   border-radius: 12px;
+  white-space: normal; /* etichette tradotte piu' lunghe vanno a capo */
 }
 .portals-grid {
   display: grid;
@@ -805,7 +851,8 @@ a { color: inherit; }
   .owner-entry-btn { padding: 9px 12px; font-size: 12px; }
   .owner-entry-btn svg { width: 16px; height: 16px; }
 }
-@media (max-width: 360px) {
+@media (max-width: 420px) {
+  .owner-entry-btn { padding: 9px 10px; }
   .owner-entry-btn svg { display: none; }
 }
 
