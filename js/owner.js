@@ -349,10 +349,13 @@
     const resend = $('#resendEmailBtn');
     if (resend) resend.onclick = async () => {
       const msg = $('#emailMsg');
+      let last = 0;
+      try { last = +localStorage.getItem('ristoapp-verify-sent') || 0; } catch {}
+      if (Date.now() - last < 60000) { msg.textContent = t('dash.email.wait'); msg.classList.add('is-error'); return; }
       resend.disabled = true;
       try { await Store.resendVerification(); msg.textContent = t('dash.email.sent'); msg.classList.remove('is-error'); }
       catch (e) { msg.textContent = e.message; msg.classList.add('is-error'); }
-      resend.disabled = false;
+      setTimeout(() => { resend.disabled = false; }, 60000);
     };
     const confirmed = $('#confirmedEmailBtn');
     if (confirmed) confirmed.onclick = async () => {

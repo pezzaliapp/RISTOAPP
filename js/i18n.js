@@ -234,7 +234,7 @@
     'auth.weakPassword': 'Password troppo debole (min 6 caratteri).',
     'auth.userNotFound': 'Email non trovata.',
     'auth.wrongPassword': 'Email o password errate.',
-    'auth.tooMany': 'Troppi tentativi. Riprova tra qualche minuto.',
+    'auth.tooMany': "Troppi tentativi: Firebase ha messo in pausa gli invii per circa un'ora. Controlla anche lo Spam e riprova più tardi.",
     'auth.network': 'Errore di rete. Controlla la connessione.',
     'auth.generic': 'Errore di autenticazione.',
 
@@ -524,7 +524,7 @@
     'auth.weakPassword': 'Password too weak (at least 6 characters).',
     'auth.userNotFound': 'Email not found.',
     'auth.wrongPassword': 'Incorrect email or password.',
-    'auth.tooMany': 'Too many attempts. Please try again in a few minutes.',
+    'auth.tooMany': "Too many attempts: Firebase has paused sending for about an hour. Check your spam folder too and try again later.",
     'auth.network': 'Network error. Check your connection.',
     'auth.generic': 'Authentication error.',
 
@@ -812,7 +812,7 @@
     'auth.weakPassword': 'Contraseña demasiado débil (mín. 6 caracteres).',
     'auth.userNotFound': 'Email no encontrado.',
     'auth.wrongPassword': 'Email o contraseña incorrectos.',
-    'auth.tooMany': 'Demasiados intentos. Vuelve a intentarlo en unos minutos.',
+    'auth.tooMany': "Demasiados intentos: Firebase ha pausado los envíos durante aproximadamente una hora. Revisa también la carpeta de spam y vuelve a intentarlo más tarde.",
     'auth.network': 'Error de red. Comprueba la conexión.',
     'auth.generic': 'Error de autenticación.',
 
@@ -1100,7 +1100,7 @@
     'auth.weakPassword': 'Passwort zu schwach (mind. 6 Zeichen).',
     'auth.userNotFound': 'E-Mail nicht gefunden.',
     'auth.wrongPassword': 'E-Mail oder Passwort falsch.',
-    'auth.tooMany': 'Zu viele Versuche. Bitte versuchen Sie es in einigen Minuten erneut.',
+    'auth.tooMany': "Zu viele Versuche: Firebase hat den Versand für etwa eine Stunde pausiert. Prüfen Sie auch den Spam-Ordner und versuchen Sie es später erneut.",
     'auth.network': 'Netzwerkfehler. Prüfen Sie die Verbindung.',
     'auth.generic': 'Anmeldefehler.',
 
@@ -1388,7 +1388,7 @@
     'auth.weakPassword': 'Mot de passe trop faible (6 caractères min.).',
     'auth.userNotFound': 'E-mail introuvable.',
     'auth.wrongPassword': 'E-mail ou mot de passe incorrect.',
-    'auth.tooMany': 'Trop de tentatives. Réessayez dans quelques minutes.',
+    'auth.tooMany': "Trop de tentatives : Firebase a suspendu les envois pendant environ une heure. Vérifiez aussi vos spams et réessayez plus tard.",
     'auth.network': 'Erreur réseau. Vérifiez votre connexion.',
     'auth.generic': 'Erreur d’authentification.',
 
@@ -1676,7 +1676,7 @@
     'auth.weakPassword': 'パスワードが弱すぎます（6文字以上）。',
     'auth.userNotFound': 'メールアドレスが見つかりません。',
     'auth.wrongPassword': 'メールアドレスまたはパスワードが正しくありません。',
-    'auth.tooMany': '試行回数が多すぎます。数分後にもう一度お試しください。',
+    'auth.tooMany': "試行回数が多すぎます。Firebaseが約1時間送信を一時停止しています。迷惑メールフォルダも確認し、しばらくしてからお試しください。",
     'auth.network': 'ネットワークエラーです。接続をご確認ください。',
     'auth.generic': '認証エラーが発生しました。',
 

@@ -152,15 +152,13 @@
     emailVerified: !!fbUser.emailVerified,
   } : null;
 
-  // Link di conferma che riporta all'app (se il dominio non e' autorizzato
-  // in Firebase, riprova senza indirizzo di ritorno)
+  // Email di conferma: UN solo invio semplice (senza link di ritorno).
+  // Due richieste ravvicinate fanno scattare il blocco "troppi tentativi"
+  // di Firebase e la seconda viene scartata. Il link apre la pagina di
+  // conferma di Firebase; poi il titolare torna nell'app e preme "Ho confermato".
   async function sendVerification(fbUser) {
-    try {
-      await fbUser.sendEmailVerification({ url: location.origin + location.pathname });
-    } catch (e) {
-      if (/continue-uri|unauthorized/i.test(e?.code || '')) await fbUser.sendEmailVerification();
-      else throw e;
-    }
+    await fbUser.sendEmailVerification();
+    try { localStorage.setItem('ristoapp-verify-sent', String(Date.now())); } catch {}
   }
 
   auth.onAuthStateChanged(fbUser => {
