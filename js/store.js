@@ -17,9 +17,10 @@
  *    Store.resendVerification()         -> Promise<void>  (email di conferma)
  *    Store.reloadUser()                 -> Promise<user>  (aggiorna emailVerified)
  *    Store.report({restaurant, reason, text}) -> Promise<void> (senza login)
+ *    Store.cinStatus(cin)               -> Promise<{taken, mine}> (lettura pubblica cin/{CIN})
  *
  *  Campi gestiti SOLO dal server (scripts/verify-owners.mjs): verified,
- *  verifiedMethod, verifiedAt, verifiedFor, hidden, reportsCount.
+ *  verifiedMethod, verifiedAt, verifiedFor, hidden, hiddenReason, reportsCount.
  *  Il client non li invia mai (le Firestore Rules lo impongono).
  *
  *  Config Firebase pubblica (OK esposta nel client: la sicurezza
@@ -51,7 +52,7 @@
       myRestaurants: async () => [], getRestaurant: async () => null,
       saveRestaurant: offline, deleteRestaurant: offline,
       allPublicRestaurants: async () => [],
-      resendVerification: offline, reloadUser: offline,
+      resendVerification: offline, reloadUser: offline, cinStatus: offline,
       report: () => Promise.reject(new Error(t('rep.offline'))),
     };
     return;
@@ -231,6 +232,16 @@
 
     currentUser() { return currentUserObj; },
 
+    // Il CIN e' gia' registrato? (prima della registrazione: lettura pubblica)
+    async cinStatus(raw) {
+      const cin = normCin(raw);
+      let snap;
+      try { snap = await db.collection(CINS).doc(cin).get(); }
+      catch (e) { console.warn('Controllo CIN non riuscito:', e); throw new Error(t('cin.err.network')); }
+      const u = currentUserObj;
+      return { taken: snap.exists, mine: !!(snap.exists && u && snap.data().owner === u.uid) };
+    },
+
     async resendVerification() {
       if (!auth.currentUser) throw new Error(t('auth.notLoggedIn'));
       try { await sendVerification(auth.currentUser); }
@@ -267,7 +278,7 @@
       if (!u) throw new Error(t('auth.notLoggedIn'));
       const lodging = LODGING_TYPES.includes(r.type);
       const discount = parseInt(r.directDiscount, 10);
-      // NB: mai inviare verified/hidden/reportsCount/verifiedMethod/verifiedAt
+      // NB: mai inviare verified/hidden/hiddenReason/reportsCount/verifiedMethod/verifiedAt
       const payload = {
         name:     r.name,
         type:     r.type,

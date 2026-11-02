@@ -845,6 +845,7 @@ html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
   transition: transform .2s, background .2s, box-shadow .2s;
   box-shadow: 0 4px 10px rgba(96,108,56,.2);
 }
+.owner-entry-btn span { white-space: nowrap; }
 .owner-entry-btn:hover { background: var(--c-olive-2); transform: translateY(-1px); }
 .owner-entry-btn svg { width: 16px; height: 16px; }
 @media (max-width: 520px) {
@@ -856,49 +857,23 @@ html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
   .owner-entry-btn svg { display: none; }
 }
 
-/* Invito ai titolari (B&B, agriturismi, ristoranti) */
-.owner-cta {
-  margin-top: 22px;
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 22px 26px;
-  border-radius: 22px;
-  background: linear-gradient(135deg, #606C38 0%, #4F5A2D 100%);
-  color: #FBF5EC;
-  box-shadow: 0 14px 34px rgba(79,90,45,.22);
+/* Accesso discreto per i titolari (home e fondo dei risultati alloggi) */
+.owner-line {
+  margin: 14px auto 0;
+  max-width: 1100px;
+  text-align: center;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--c-muted);
 }
-.owner-cta-text { flex: 1; min-width: 0; }
-.owner-cta-eyebrow { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; font-weight: 600; }
-.owner-cta-title {
-  font-family: var(--f-display);
-  font-size: clamp(22px, 3vw, 30px);
-  line-height: 1.12;
-  font-weight: 600;
-  margin: 6px 0 10px;
+.owner-line-link {
+  color: var(--c-accent);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
 }
-.owner-cta-title em { font-style: italic; color: #FFD9C9; font-weight: 500; }
-.owner-cta-steps { margin: 0 0 8px 20px; padding: 0; font-size: 14px; line-height: 1.55; }
-.owner-cta-steps strong { color: #fff; }
-.owner-cta-note { margin: 0; font-size: 13px; opacity: .85; }
-.owner-cta-btn {
-  flex-shrink: 0;
-  background: var(--c-accent);
-  color: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 16px 28px;
-  font: 700 16px var(--f-body, inherit);
-  cursor: pointer;
-  box-shadow: 0 10px 24px rgba(196,69,54,.35);
-  transition: transform .15s;
-}
-.owner-cta-btn:hover { transform: translateY(-1px); }
-.owner-cta--inline { margin: 0 0 12px; grid-column: 1 / -1; }
-@media (max-width: 640px) {
-  .owner-cta { flex-direction: column; align-items: stretch; padding: 20px; }
-  .owner-cta-btn { width: 100%; }
-}
+.owner-line-link:hover { text-decoration: underline; }
+.owner-line--results { grid-column: 1 / -1; margin: 6px 0 4px; }
 
 /* Badge "verificato" sulle card */
 .card.is-verified {
@@ -1499,3 +1474,57 @@ html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
 .decl-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.5; color: var(--c-ink-soft); cursor: pointer; }
 .decl-check input { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; accent-color: var(--c-olive); }
 .decl-section a { color: var(--c-accent); font-weight: 600; }
+
+/* ============================================================
+ *  v5.2 - Registrazione a passi, CIN prima dell'account
+ * ============================================================ */
+.how-box {
+  background: var(--c-bg-2);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--c-ink-soft);
+}
+.how-box h3 { font-family: var(--f-display); font-size: 17px; font-weight: 600; margin: 0 0 6px; color: var(--c-ink); }
+.how-box ol { margin: 0 0 8px 18px; padding: 0; }
+.how-box li { margin-bottom: 4px; }
+.how-box strong { color: var(--c-ink); }
+.how-note { margin: 0; color: var(--c-olive-2); font-weight: 600; }
+.how-honest { margin: 0; font-size: 12px; color: var(--c-muted); line-height: 1.45; }
+.reg-q { font-family: var(--f-display); font-size: 20px; font-weight: 600; margin: 4px 0 0; }
+.reg-choices { display: grid; gap: 10px; }
+.reg-choice {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1.5px solid var(--c-line);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  font: inherit;
+  color: var(--c-ink);
+  transition: border-color .15s, box-shadow .15s;
+}
+.reg-choice:hover, .reg-choice:focus-visible { border-color: var(--c-olive); box-shadow: 0 0 0 3px rgba(96,108,56,.15); outline: none; }
+.reg-choice strong { display: block; font-size: 15px; }
+.reg-choice small { display: block; font-size: 12.5px; color: var(--c-muted); margin-top: 2px; }
+.reg-ico { font-size: 26px; flex-shrink: 0; }
+.reg-step { font-size: 11px; text-transform: uppercase; letter-spacing: .18em; color: var(--c-olive); font-weight: 700; }
+.cin-result { margin: 0; font-size: 13.5px; line-height: 1.45; padding: 8px 12px; border-radius: var(--r-md); }
+.cin-result.is-ok { background: #E9EDD9; color: var(--c-olive-2); font-weight: 600; }
+.cin-result.is-error { background: #F7E6E2; color: var(--c-accent-2); }
+.cin-result.is-warn { background: #FFF4DC; color: #7A5A12; }
+.cin-summary { display: flex; flex-direction: column; gap: 6px; }
+.cin-summary code { font-family: ui-monospace, Menlo, monospace; font-size: 14px; letter-spacing: .03em; }
+.cin-summary a, .cin-actions a { color: var(--c-accent); font-weight: 600; font-size: 13px; }
+#edCinResult:not(:empty) { margin-top: 10px; }
+.cin-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; flex-wrap: wrap; }
+.cin-actions .btn-primary { padding: 10px 18px; font-size: 14px; }
+.ed-rest { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+.ed-rest:disabled { opacity: .45; }
+.ed-rest:disabled .editor-actions { position: static; }
+.editor-section--type .form-field { max-width: 360px; }
+
+[hidden] { display: none !important; }

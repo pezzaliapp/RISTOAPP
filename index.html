@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./css/styles.css?v=5.1.0" />
+  <link rel="stylesheet" href="./css/styles.css?v=5.2.0" />
 </head>
 <body>
 
@@ -68,9 +68,9 @@
           <option value="ja">JA &middot; 日本語</option>
         </select>
       </label>
-      <button class="owner-entry-btn" id="ownerBtn" title="Hai un ristorante o un B&amp;B? Registralo gratis" data-i18n-title="header.ownerTitle">
+      <button class="owner-entry-btn" id="ownerBtn" title="Area titolari: pubblica gratis il tuo B&amp;B o ristorante" data-i18n-title="header.ownerTitle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-6h-6v6H5a2 2 0 0 1-2-2V11z"/></svg>
-        <span data-i18n="header.register">Registrati gratis</span>
+        <span data-i18n="header.register">Area titolari</span>
       </button>
       <button class="icon-btn" id="installBtn" aria-label="Installa app" title="Installa come app" data-i18n-aria-label="header.installAria" data-i18n-title="header.installTitle">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -116,20 +116,8 @@
       </button>
     </div>
 
-    <!-- INVITO AI TITOLARI -->
-    <aside class="owner-cta" id="registrati" aria-labelledby="ownerCtaTitle">
-      <div class="owner-cta-text">
-        <div class="owner-cta-eyebrow" data-i18n="cta.eyebrow">Hai un B&amp;B, un agriturismo o un ristorante?</div>
-        <h2 class="owner-cta-title" id="ownerCtaTitle" data-i18n-html="cta.title">Registra gratis la tua attivit&agrave; e fai conoscere il tuo <em>B&amp;B</em></h2>
-        <ol class="owner-cta-steps">
-          <li data-i18n-html="cta.step1"><strong>Crea un account</strong> con la tua email</li>
-          <li data-i18n-html="cta.step2"><strong>Inserisci la struttura</strong>: camere, prezzi a notte, servizi</li>
-          <li data-i18n-html="cta.step3"><strong>Compari in cima</strong> alle ricerche e offri uno sconto a chi prenota da qui</li>
-        </ol>
-        <p class="owner-cta-note" data-i18n="cta.note">Gratis. RistoApp non ti chiede commissioni: chi ti contatta da qui prenota direttamente con te, e puoi offrirgli uno sconto.</p>
-      </div>
-      <button class="owner-cta-btn" data-owner-register data-i18n="cta.btn">Registrati gratis</button>
-    </aside>
+    <!-- Accesso discreto per i titolari (le spiegazioni sono nel pannello) -->
+    <p class="owner-line" id="registrati" data-i18n-html="ownerline.home">Hai un B&amp;B o un ristorante? <a href="#registrati" class="owner-line-link" data-owner-register>Accedi qui gratuitamente&nbsp;&rarr;</a></p>
   </section>
 
   <!-- FILTRI -->
@@ -207,16 +195,16 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="./js/i18n.js?v=5.1.0"></script>
-  <script src="./js/i18n-trust.js?v=5.1.0"></script>
-  <script src="./js/data.js?v=5.1.0"></script>
+  <script src="./js/i18n.js?v=5.2.0"></script>
+  <script src="./js/i18n-trust.js?v=5.2.0"></script>
+  <script src="./js/data.js?v=5.2.0"></script>
   <!-- Firebase SDK (compat) - Fase 2 backend condiviso -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="./js/store.js?v=5.1.0"></script>
-  <script src="./js/trust.js?v=5.1.0"></script>
-  <script src="./js/owner.js?v=5.1.0"></script>
-  <script src="./js/app.js?v=5.1.0"></script>
+  <script src="./js/store.js?v=5.2.0"></script>
+  <script src="./js/trust.js?v=5.2.0"></script>
+  <script src="./js/owner.js?v=5.2.0"></script>
+  <script src="./js/app.js?v=5.2.0"></script>
 </body>
 </html>

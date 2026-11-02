@@ -20,7 +20,7 @@ service cloud.firestore {
     // Campi che scrive SOLO lo script di verifica (firebase-admin, che
     // ignora queste regole): il titolare non puo' mai impostarli.
     function serverFields() {
-      return ['verified', 'verifiedMethod', 'verifiedAt', 'verifiedFor', 'hidden', 'reportsCount'];
+      return ['verified', 'verifiedMethod', 'verifiedAt', 'verifiedFor', 'hidden', 'hiddenReason', 'reportsCount'];
     }
     function allowedFields() {
       return ['name', 'type', 'address', 'phone', 'website', 'lat', 'lng', 'hours',
@@ -75,7 +75,8 @@ service cloud.firestore {
         && (!('reportsCount' in request.resource.data) || request.resource.data.reportsCount == 0)
         && !('verifiedMethod' in request.resource.data)
         && !('verifiedAt' in request.resource.data)
-        && !('verifiedFor' in request.resource.data);
+        && !('verifiedFor' in request.resource.data)
+        && !('hiddenReason' in request.resource.data);
 
       allow update: if request.auth != null
         && resource.data.owner == request.auth.uid
@@ -91,6 +92,7 @@ service cloud.firestore {
         && request.resource.data.get('verifiedMethod', '') == resource.data.get('verifiedMethod', '')
         && request.resource.data.get('verifiedAt', null) == resource.data.get('verifiedAt', null)
         && request.resource.data.get('verifiedFor', '') == resource.data.get('verifiedFor', '')
+        && request.resource.data.get('hiddenReason', '') == resource.data.get('hiddenReason', '')
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverFields());
 
       // Elimina solo il titolare; se c'e' un CIN, il suo doc va eliminato

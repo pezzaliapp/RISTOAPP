@@ -714,14 +714,14 @@ out center tags qt;`;
         <div class="empty-mark">${escapeHtml(t('results.emptyMark'))}</div>
         <p><strong>${escapeHtml(t('results.emptyTitle'))}</strong></p>
         <p>${escapeHtml(t('results.emptyHint'))}</p>
-      </div>`;
+      </div>` + ownerLineHtml();
       return;
     }
 
     const warnHtml = state.warning
       ? `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1"><p style="margin:0">${escapeHtml(msgText(state.warning))}</p></div>`
       : '';
-    listEl.innerHTML = warnHtml + lodgingBannerHtml() + filtered.map((r, idx) => cardHtml(r, idx)).join('');
+    listEl.innerHTML = warnHtml + lodgingBannerHtml() + filtered.map((r, idx) => cardHtml(r, idx)).join('') + ownerLineHtml();
   }
 
   function syncLodgingChips() {
@@ -734,6 +734,14 @@ out center tags qt;`;
   }
 
 
+  // Riga discreta per i titolari, DOPO gli alloggi (gli ospiti vedono prima i risultati)
+  function ownerLineHtml() {
+    if (!lodgingMode()) return '';
+    const city = state.cityName || '';
+    return `<p class="owner-line owner-line--results">${city
+      ? t('ownerline.city', { city: escapeHtml(city) }) : t('ownerline.generic')}</p>`;
+  }
+
   function lodgingBannerHtml() {
     if (!lodgingMode()) return '';
     const city = state.cityName || '';
@@ -743,15 +751,7 @@ out center tags qt;`;
       ? `<p style="margin:0 0 8px"><strong>${escapeHtml(t('lodging.widened', { kind: t('kindpl.' + kind), r: km(state.radius), w: km(state.lodgingRadius) }))}</strong></p>` : '';
     const b = bookingUrl(encodeURIComponent(city));
     const a = `https://www.airbnb.it/s/${encodeURIComponent(city)}/homes`;
-    const ownerCta = `<aside class="owner-cta owner-cta--inline">
-      <div class="owner-cta-text">
-        <div class="owner-cta-eyebrow">${city ? t('cta.inline.eyebrowCity', { city: escapeHtml(city) }) : escapeHtml(t('cta.inline.eyebrow'))}</div>
-        <div class="owner-cta-title" style="font-size:22px">${t('cta.inline.title')}</div>
-        <p class="owner-cta-note">${escapeHtml(t('cta.inline.note'))}</p>
-      </div>
-      <button class="owner-cta-btn" data-owner-register>${escapeHtml(t('cta.btn'))}</button>
-    </aside>`;
-    return ownerCta + `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
+    return `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
       ${widened}
       <p style="margin:0 0 10px">${t('lodging.portals', { city: escapeHtml(city) })}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">

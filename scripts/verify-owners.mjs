@@ -12,6 +12,10 @@
  *  alle 03 UTC (codice sparito -> verified = false).
  *  Segnalazioni: conta i doc "reports" per annuncio -> reportsCount;
  *  nasconde (hidden = true) se non verificato e >= 3, o verificato e >= 6.
+ *  CIN: nasconde (hiddenReason = 'cin_mismatch') gli alloggi il cui CIN
+ *  indica un Comune inesistente o che distano piu' di 20 km (o del raggio
+ *  del Comune) dal centro del Comune del CIN (data-static/istat-comuni.json);
+ *  li rende di nuovo visibili quando il titolare corregge le coordinate.
  *
  *  Uso:  FIREBASE_SERVICE_ACCOUNT='{"type":"service_account",...}' \
  *        VERIFY_DEPS_DIR=/tmp/deps node scripts/verify-owners.mjs
@@ -19,8 +23,9 @@
  * ============================================================ */
 
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const LODGING_TYPES = ['B&B', 'Agriturismo', 'Affittacamere', 'Casa vacanze', 'Hotel', 'Ostello'];
 export const USER_AGENT = 'RistoAppVerifier/1.0 (+https://www.alessandropezzali.it/RISTOAPP/)';
@@ -28,6 +33,8 @@ const FETCH_TIMEOUT_MS = 15000;
 const MAX_BYTES = 2 * 1024 * 1024;
 const HIDE_UNVERIFIED = 3;
 const HIDE_VERIFIED = 6;
+const MAX_KM = 20;
+export const ISTAT_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data-static', 'istat-comuni.json');
 
 // Caselle email gratuite/generiche: non dimostrano il controllo di un dominio
 const FREE_MAIL = [
@@ -108,6 +115,38 @@ export function domainMatches(email, emailVerified, website) {
   return !!ed && !!sd && !isFreeMail(ed) && !isUgcSite(sd) && ed === sd;
 }
 
+// ---------------- CIN -> Comune ----------------
+
+/** Carica la tabella ISTAT (null se manca: il controllo viene saltato). */
+export function loadIstat(file = ISTAT_FILE) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch (e) { console.log(`Tabella dei Comuni non disponibile (${e.message}): controllo CIN/Comune saltato.`); return null; }
+}
+
+/** Comune indicato dal CIN (caratteri 3-8), seguendo gli alias dei codici soppressi. */
+export function comuneForCin(table, cin) {
+  const code = String(cin || '').toUpperCase().replace(/\s+/g, '').slice(2, 8);
+  let v = table && table[code];
+  if (typeof v === 'string') v = table[v];
+  return Array.isArray(v) ? { code, name: v[0], prov: v[1], lat: v[2], lng: v[3], radiusKm: v[4] || MAX_KM } : null;
+}
+
+export function distanceKm(a, b) {
+  const R = 6371, r = x => x * Math.PI / 180;
+  const dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/** true se CIN e posizione non tornano (Comune sconosciuto o troppo lontano). */
+export function cinMismatch(table, r) {
+  if (!table || !r || !r.cin) return false;
+  const c = comuneForCin(table, r.cin);
+  if (!c) return true;
+  if (typeof r.lat !== 'number' || typeof r.lng !== 'number') return true;
+  return distanceKm(c, r) > c.radiusKm;
+}
+
 /** Va nascosto in base alle segnalazioni? */
 export function shouldHide(verified, reportsCount) {
   return verified ? reportsCount >= HIDE_VERIFIED : reportsCount >= HIDE_UNVERIFIED;
@@ -176,6 +215,7 @@ export async function main() {
   const db = admin.firestore();
   const FieldValue = admin.firestore.FieldValue;
   const dailyRecheck = new Date().getUTCHours() === 3;
+  const istat = loadIstat();
 
   // Segnalazioni raggruppate per annuncio (una sola lettura della collezione)
   const reports = new Map();
@@ -195,7 +235,7 @@ export async function main() {
   }
 
   const sum = { listings: 0, lodging: 0, verifiedWebsite: 0, verifiedDomain: 0, unverified: 0,
-                hidden: 0, reportsUpdated: 0, errors: 0 };
+                hidden: 0, hiddenCin: 0, shownAgain: 0, reportsUpdated: 0, errors: 0 };
   const snap = await db.collection('restaurants').get();
   for (const doc of snap.docs) {
     sum.listings++;
@@ -244,10 +284,23 @@ export async function main() {
 
       const count = reports.get(id) || 0;
       if ((r.reportsCount || 0) !== count) { update.reportsCount = count; sum.reportsUpdated++; }
-      if (r.hidden !== true && shouldHide(verified, count)) {
-        update.hidden = true;
-        sum.hidden++;
-        console.log(`! nascosto per ${count} segnalazioni: ${id} ${r.name}`);
+      const byReports = shouldHide(verified, count);
+      const badCin = lodging && istat && cinMismatch(istat, r);
+      if (r.hidden !== true) {
+        if (badCin) {
+          Object.assign(update, { hidden: true, hiddenReason: 'cin_mismatch' });
+          sum.hiddenCin++;
+          console.log(`! nascosto: CIN ${r.cin} non corrisponde alla posizione: ${id} ${r.name}`);
+        } else if (byReports) {
+          Object.assign(update, { hidden: true, hiddenReason: 'reports' });
+          sum.hidden++;
+          console.log(`! nascosto per ${count} segnalazioni: ${id} ${r.name}`);
+        }
+      } else if (r.hiddenReason === 'cin_mismatch' && istat && !badCin) {
+        // il titolare ha corretto le coordinate
+        if (byReports) update.hiddenReason = 'reports';
+        else { Object.assign(update, { hidden: false, hiddenReason: FieldValue.delete() }); sum.shownAgain++; }
+        console.log(`+ CIN e posizione ora corrispondono: ${id} ${r.name}`);
       }
 
       if (Object.keys(update).length) await doc.ref.update(update);

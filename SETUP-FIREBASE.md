@@ -1,4 +1,4 @@
-# 🔐 Firebase — Setup (versione 5.1: sconto diretto, CIN, anti-truffa)
+# 🔐 Firebase — Setup (versione 5.2: sconto diretto, CIN, anti-truffa)
 
 La config Firebase (`ristoapp-b4215`) è già nel codice (`js/store.js`).
 Restano **due cose da fare a mano**, una volta sola:
@@ -11,6 +11,9 @@ Non serve attivare nient'altro (niente piano a pagamento, niente Cloud Functions
 ---
 
 ## 1️⃣ Incolla le regole Firestore (obbligatorio)
+
+> **Aggiornamento 5.2:** le regole sono cambiate (nuovo campo del server `hiddenReason`).
+> Se avevi già incollato quelle della 5.1, incolla di nuovo tutto `firestore.rules`.
 
 Le regole sono **la vera protezione** dell'app: decidono chi può scrivere cosa.
 Senza le nuove regole la nuova versione non riesce a salvare gli alloggi.
@@ -31,7 +34,7 @@ Senza le nuove regole la nuova versione non riesce a salvare gli alloggi.
 - **Un CIN = un solo annuncio** (collezione `cin`): se qualcuno ha già usato quel CIN,
   il secondo annuncio viene rifiutato. Il CIN non si può cambiare dopo la pubblicazione.
 - **Campi del server** (`verified`, `hidden`, `reportsCount`, `verifiedMethod`,
-  `verifiedAt`, `verifiedFor`): **nessun titolare può impostarli**. Li scrive solo lo
+  `verifiedAt`, `verifiedFor`, `hiddenReason`): **nessun titolare può impostarli**. Li scrive solo lo
   script automatico (punto 2).
 - **Sconto** per prenotazione diretta: numero intero da 0 a 30.
 - **Segnalazioni** (`reports`): chiunque può inviarne una, anche senza account,
@@ -50,7 +53,10 @@ Ogni ora GitHub esegue `scripts/verify-owners.mjs`
   dello stesso dominio del sito (es. `info@villaaurora.it` per `villaaurora.it`;
   gmail, libero, hotmail, ecc. non valgono);
 - toglie la verifica se il sito cambia o (controllo giornaliero) se il codice sparisce;
-- conta le segnalazioni e **nasconde** gli annunci con 3 segnalazioni (6 se verificati).
+- conta le segnalazioni e **nasconde** gli annunci con 3 segnalazioni (6 se verificati);
+- **nasconde** gli alloggi il cui CIN indica un Comune inesistente o che si trovano a più
+  di 20 km dal centro di quel Comune (tabella `data-static/istat-comuni.json`), e li rende
+  di nuovo visibili quando il titolare corregge le coordinate.
 
 Per funzionare ha bisogno di una **chiave di servizio** di Firebase:
 
@@ -77,7 +83,7 @@ Finché il segreto non c'è, il workflow termina subito con il messaggio
 
 Se un annuncio è stato nascosto ingiustamente dalle segnalazioni:
 Console Firebase → **Firestore Database** → `restaurants` → apri il documento →
-metti `hidden` a `false`. Per evitare che venga nascosto di nuovo cancella
+metti `hidden` a `false` (e cancella il campo `hiddenReason`). Per evitare che venga nascosto di nuovo cancella
 le relative segnalazioni nella collezione `reports` (campo `restaurant` = id dell'annuncio).
 
 ---

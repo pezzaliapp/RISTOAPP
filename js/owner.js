@@ -99,24 +99,72 @@
   }
 
   // -------------- AUTH VIEW ---------------------------------
+  // Registrazione a passi: scelta (locale / alloggio) -> [alloggio: CIN] -> account.
+  // reg sopravvive al ridisegno per il cambio lingua.
+  let reg = { step: 'choose', kind: null, cin: '', res: null };
+  const closeBtnHtml = () => `<button class="modal-close" id="ownerCloseBtn" aria-label="${escapeAttr(t('modal.close'))}">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>`;
+
+  function howItWorksHtml() {
+    return `<div class="how-box">
+      <h3>${escapeHtml(t('how.title'))}</h3>
+      <ol>
+        <li>${t('how.step1')}</li>
+        <li>${t('how.step2')}</li>
+        <li>${t('how.step3')}</li>
+      </ol>
+      <p class="how-note">${escapeHtml(t('how.note'))}</p>
+    </div>`;
+  }
+
   function renderAuthView(mode = 'login') {
     const inner = $('#ownerPanelInner');
     const isLogin = mode === 'login';
     // conserva quanto gia' digitato se si ridisegna (cambio lingua)
     const prev = view.name === 'auth' && $('#authForm') ? new FormData($('#authForm')) : null;
+    const prevCin = $('#regCin') ? $('#regCin').value : null;
+    if (view.name !== 'auth') reg = { step: 'choose', kind: null, cin: '', res: null };
     view = { name: 'auth', mode };
-    inner.innerHTML = `
-      <div class="owner-head">
-        <div>
-          <div class="owner-eyebrow">${escapeHtml(t('owner.eyebrow'))}</div>
-          <h2 class="owner-title">${escapeHtml(t(isLogin ? 'owner.login.title' : 'owner.register.title'))}</h2>
-          <p class="owner-sub">${isLogin ? escapeHtml(t('owner.login.sub')) : t('owner.register.sub')}</p>
+    const step = isLogin ? 'login' : reg.step;
+
+    let body = '';
+    if (step === 'choose') {
+      body = `<div class="auth-form">
+        ${howItWorksHtml()}
+        <h3 class="reg-q">${escapeHtml(t('reg.choose.title'))}</h3>
+        <div class="reg-choices">
+          <button type="button" class="reg-choice" data-kind="food">
+            <span class="reg-ico" aria-hidden="true">🍽️</span>
+            <span><strong>${escapeHtml(t('reg.choose.food'))}</strong><small>${escapeHtml(t('reg.choose.foodSub'))}</small></span>
+          </button>
+          <button type="button" class="reg-choice" data-kind="lodging">
+            <span class="reg-ico" aria-hidden="true">🛏️</span>
+            <span><strong>${escapeHtml(t('reg.choose.lodging'))}</strong><small>${escapeHtml(t('reg.choose.lodgingSub'))}</small></span>
+          </button>
         </div>
-        <button class="modal-close" id="ownerCloseBtn" aria-label="${escapeAttr(t('modal.close'))}">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <form class="auth-form" id="authForm">
+        <p class="auth-switch">${escapeHtml(t('owner.haveAccount'))} <a href="#" id="switchAuth">${escapeHtml(t('owner.toLogin'))}</a></p>
+      </div>`;
+    } else if (step === 'cin') {
+      body = `<form class="auth-form" id="cinForm" novalidate>
+        <div class="reg-step">${escapeHtml(t('reg.cin.step'))}</div>
+        <label class="form-field">
+          <span>${escapeHtml(t('reg.cin.title'))}</span>
+          <input id="regCin" name="cin" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false"
+            placeholder="IT043013C2ABC12345" value="${escapeAttr(prevCin ?? reg.cin)}" />
+        </label>
+        <p class="editor-hint" style="margin:0">${t('ed.cin.hint')}</p>
+        <div id="cinResult">${reg.res && !reg.res.ok ? Trust.cinResultHtml(reg.res) : ''}</div>
+        <button type="submit" class="btn-primary btn-full" id="cinCheckBtn">${escapeHtml(t('reg.cin.check'))}</button>
+        <p class="how-honest">${escapeHtml(t('how.cinHonest'))}</p>
+        <p class="auth-switch"><a href="#" id="regBack">${escapeHtml(t('owner.back'))}</a></p>
+      </form>`;
+    } else {
+      const lodgingOk = reg.kind === 'lodging' && reg.res && reg.res.ok;
+      body = `<form class="auth-form" id="authForm">
+        ${lodgingOk ? `<div class="reg-step">${escapeHtml(t('reg.form.step'))}</div>
+          <div class="cin-summary"><code>${escapeHtml(reg.res.cin)}</code>${Trust.cinResultHtml(reg.res)}
+            <a href="#" id="regChangeCin">${escapeHtml(t('reg.cin.change'))}</a></div>` : ''}
         ${!isLogin ? `
           <label class="form-field">
             <span>${escapeHtml(t('owner.field.name'))}</span>
@@ -136,23 +184,83 @@
         <p class="auth-switch">
           ${isLogin
             ? `${escapeHtml(t('owner.noAccount'))} <a href="#" id="switchAuth">${escapeHtml(t('owner.toRegister'))}</a>`
-            : `${escapeHtml(t('owner.haveAccount'))} <a href="#" id="switchAuth">${escapeHtml(t('owner.toLogin'))}</a>`}
+            : `<a href="#" id="regBack">${escapeHtml(t('owner.back'))}</a> · ${escapeHtml(t('owner.haveAccount'))} <a href="#" id="switchAuth">${escapeHtml(t('owner.toLogin'))}</a>`}
         </p>
-        <p class="auth-disclaimer">${t('owner.disclaimer')}</p>
+        ${isLogin ? `<p class="auth-disclaimer">${t('owner.disclaimer')}</p>` : ''}
       </form>`;
+    }
+
+    inner.innerHTML = `
+      <div class="owner-head">
+        <div>
+          <div class="owner-eyebrow">${escapeHtml(t('owner.eyebrow'))}</div>
+          <h2 class="owner-title">${escapeHtml(t(isLogin ? 'owner.login.title' : 'owner.register.title'))}</h2>
+          <p class="owner-sub">${escapeHtml(t(isLogin ? 'owner.login.sub' : 'owner.register.sub'))}</p>
+        </div>
+        ${closeBtnHtml()}
+      </div>
+      ${body}`;
 
     if (prev) ['name', 'email'].forEach(k => {
       const el = inner.querySelector(`[name="${k}"]`);
       if (el && prev.get(k)) el.value = prev.get(k);
     });
     $('#ownerCloseBtn').onclick = closePanel;
-    $('#switchAuth').onclick = (e) => { e.preventDefault(); renderAuthView(isLogin ? 'register' : 'login'); };
-    $('#authForm').onsubmit = async (e) => {
+    const sw = $('#switchAuth');
+    if (sw) sw.onclick = (e) => { e.preventDefault(); renderAuthView(isLogin ? 'register' : 'login'); };
+    const back = $('#regBack');
+    if (back) back.onclick = (e) => {
+      e.preventDefault();
+      reg.step = reg.step === 'form' && reg.kind === 'lodging' ? 'cin' : 'choose';
+      if (reg.step === 'choose') reg.res = null;
+      renderAuthView('register');
+    };
+    inner.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => {
+      reg.kind = b.dataset.kind;
+      reg.step = reg.kind === 'lodging' ? 'cin' : 'form';
+      reg.res = null;
+      renderAuthView('register');
+      const c = $('#regCin'); if (c) c.focus();
+    });
+    const change = $('#regChangeCin');
+    if (change) change.onclick = (e) => { e.preventDefault(); reg.step = 'cin'; reg.res = null; renderAuthView('register'); };
+
+    const cinForm = $('#cinForm');
+    if (cinForm) {
+      const input = $('#regCin');
+      input.addEventListener('input', () => {
+        const v = Trust.normCin(input.value);
+        if (v !== input.value) input.value = v;
+      });
+      cinForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = $('#cinCheckBtn');
+        reg.cin = Trust.normCin(input.value);
+        btn.disabled = true; btn.textContent = t('reg.cin.checking');
+        const res = await Trust.checkCin(reg.cin);
+        if (view.name !== 'auth' || !$('#cinForm')) return;
+        reg.res = res;
+        if (res.ok) { reg.step = 'form'; renderAuthView('register'); return; }
+        $('#cinResult').innerHTML = Trust.cinResultHtml(res);
+        btn.disabled = false; btn.textContent = t('reg.cin.check');
+      };
+    }
+
+    const authForm = $('#authForm');
+    if (authForm) authForm.onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
       try {
         if (isLogin) await Store.login(fd.get('email'), fd.get('password'));
-        else         await Store.register(fd.get('email'), fd.get('password'), fd.get('name'));
+        else {
+          const u = await Store.register(fd.get('email'), fd.get('password'), fd.get('name'));
+          // CIN controllato: in attesa del primo annuncio di questo account
+          if (reg.kind === 'lodging' && reg.res && reg.res.ok) {
+            const c = reg.res.comune;
+            Trust.setPendingCin({ cin: reg.res.cin, uid: u && u.uid, comune: c ? [c.name, c.prov] : null });
+          }
+          reg = { step: 'choose', kind: null, cin: '', res: null };
+        }
         renderRouter();
         if (window.refreshPublicResults) window.refreshPublicResults();
       } catch (err) {
@@ -280,7 +388,9 @@
     const cin = r.cin
       ? `<span class="my-cin">${escapeHtml(t('dash.cin', { cin: r.cin }))}</span>`
       : `<span class="my-cin is-missing">${escapeHtml(t('dash.noCin'))}</span>`;
-    const how = r.verified === true ? '' : `
+    const hiddenWhy = r.hidden === true
+      ? `<p class="editor-warn" style="margin:10px 0 0">${escapeHtml(t(r.hiddenReason === 'cin_mismatch' ? 'dash.hiddenCin' : 'dash.hiddenReports'))}</p>` : '';
+    const how = r.verified === true ? hiddenWhy : hiddenWhy + `
       <details class="verify-how" open>
         <summary>${escapeHtml(t('dash.verify.title'))}</summary>
         <p>${escapeHtml(t('dash.verify.intro'))}</p>
@@ -309,22 +419,30 @@
       try { existing = await Store.getRestaurant(restaurantId); }
       catch (e) { alert(e.message); renderDashboard(); return; }
     }
-    view = { name: 'editor', existing };
+    const u = Store.currentUser() || {};
+    // CIN controllato alla registrazione (stesso account): precompilato e bloccato
+    const pending = !existing && !opts.draft ? Trust.getPendingCin(u.uid) : null;
+    // Stato del controllo CIN in questo editor: { ok, cin, comune, unchecked } | null
+    let cinState = opts.cinState !== undefined ? opts.cinState
+      : existing && existing.cin ? { ok: true, cin: existing.cin, comune: null, fromSaved: true }
+      : pending ? { ok: true, cin: pending.cin, comune: null, fromPending: true }
+      : null;
+    view = { name: 'editor', existing, getCinState: () => cinState };
     const defaultCity = CFG.cities[0];
     const r = opts.draft || existing || {
-      name: '', type: 'Pizzeria',
+      name: '', type: pending ? 'B&B' : 'Pizzeria',
       address: '', phone: '', website: '',
       lat: defaultCity.lat, lng: defaultCity.lng,
       hours: {0:[],1:[],2:[],3:[],4:[],5:[],6:[]},
       payments: ['contanti','carta'],
       features: [],
       menu: [],
-      cin: '', directDiscount: '', whatsapp: '', contactEmail: '', declared: false,
+      cin: pending ? pending.cin : '', directDiscount: '', whatsapp: '', contactEmail: '', declared: false,
     };
-    const u = Store.currentUser() || {};
     // In modifica non si passa da locale ad alloggio (il CIN non si aggiunge dopo)
     const lockedKind = existing ? (isLodgingType(existing.type) ? 'lodging' : 'food') : null;
     const cinLocked = !!(existing && existing.cin);
+    const cinReadonly = () => cinLocked || !!(cinState && cinState.ok);
 
     inner.innerHTML = `
       <div class="owner-head">
@@ -341,13 +459,7 @@
       </div>
 
       <form class="editor-form" id="editorForm">
-        <div class="editor-section">
-          <h3>${escapeHtml(t('ed.basic'))}</h3>
-          <div class="grid-2">
-            <label class="form-field">
-              <span>${escapeHtml(t('ed.name'))}</span>
-              <input name="name" required value="${escapeAttr(r.name)}" placeholder="${escapeAttr(t('owner.namePh'))}" />
-            </label>
+        <div class="editor-section editor-section--type">
             <label class="form-field">
               <span>${escapeHtml(t('ed.type'))}</span>
               <select name="type" required>
@@ -358,6 +470,34 @@
                   ${LODGING_TYPES.map(ty => `<option value="${escapeAttr(ty)}" ${r.type === ty ? 'selected' : ''}>${escapeHtml(I18N.typeLabel(ty))}</option>`).join('')}
                 </optgroup>`}
               </select>
+            </label>
+        </div>
+
+        <div class="editor-section" data-only="lodging">
+          <h3>${escapeHtml(t('ed.cin.section'))}</h3>
+          ${u.emailVerified ? '' : `<p class="editor-warn">${escapeHtml(t('ed.needVerifiedEmail'))}</p>`}
+          <label class="form-field">
+            <span>${escapeHtml(t('ed.cin.label'))}</span>
+            <input name="cin" value="${escapeAttr(r.cin || '')}" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false"
+              placeholder="IT043013C2ABC12345" ${cinReadonly() ? 'readonly class="is-readonly"' : ''} />
+          </label>
+          <div id="edCinResult"></div>
+          ${cinLocked ? '' : `<div class="cin-actions">
+            <button type="button" class="btn-primary" id="edCinCheck">${escapeHtml(t('reg.cin.check'))}</button>
+            <a href="#" id="edCinChange">${escapeHtml(t('reg.cin.change'))}</a>
+          </div>`}
+          <p class="editor-hint" style="margin:8px 0 0">${cinLocked ? escapeHtml(t('ed.cin.locked')) : t('ed.cin.hint')}</p>
+          <p class="editor-hint" style="margin:6px 0 0">${escapeHtml(t('how.cinHonest'))}</p>
+          <p class="editor-warn" id="edCinGate" style="margin:10px 0 0">${escapeHtml(t('ed.cin.gate'))}</p>
+        </div>
+
+        <fieldset class="ed-rest" id="edRest">
+        <div class="editor-section">
+          <h3>${escapeHtml(t('ed.basic'))}</h3>
+          <div class="grid-2">
+            <label class="form-field grid-col-2">
+              <span>${escapeHtml(t('ed.name'))}</span>
+              <input name="name" required value="${escapeAttr(r.name)}" placeholder="${escapeAttr(t('owner.namePh'))}" />
             </label>
             <label class="form-field grid-col-2">
               <span>${escapeHtml(t('ed.address'))}</span>
@@ -379,19 +519,9 @@
               <span>${escapeHtml(t('ed.lng'))}</span>
               <input name="lng" type="number" step="0.0001" required value="${r.lng}" />
             </label>
+            <div class="grid-col-2"><button type="button" class="chip" id="useCentroid" hidden>${escapeHtml(t('ed.coords.centroid'))}</button></div>
             <p class="editor-hint grid-col-2">${t('ed.coordsHint')}</p>
           </div>
-        </div>
-
-        <div class="editor-section" data-only="lodging">
-          <h3>${escapeHtml(t('ed.cin.section'))}</h3>
-          ${u.emailVerified ? '' : `<p class="editor-warn">${escapeHtml(t('ed.needVerifiedEmail'))}</p>`}
-          <label class="form-field">
-            <span>${escapeHtml(t('ed.cin.label'))}</span>
-            <input name="cin" value="${escapeAttr(r.cin || '')}" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false"
-              placeholder="IT043013C2ABC12345" ${cinLocked ? 'readonly class="is-readonly"' : ''} />
-          </label>
-          <p class="editor-hint" style="margin:8px 0 0">${cinLocked ? escapeHtml(t('ed.cin.locked')) : t('ed.cin.hint')}</p>
         </div>
 
         <div class="editor-section" data-only="lodging">
@@ -468,15 +598,71 @@
         <div class="editor-actions">
           <button type="submit" class="btn-primary btn-full">${escapeHtml(t(existing ? 'ed.save' : 'ed.publish'))}</button>
         </div>
+        </fieldset>
       </form>`;
 
-    applyTypeTexts(r.type);
-    $('[name="type"]').addEventListener('change', e => applyTypeTexts(e.target.value));
     const cinInput = $('[name="cin"]');
-    if (cinInput && !cinLocked) cinInput.addEventListener('input', () => {
+    const latIn = $('[name="lat"]'), lngIn = $('[name="lng"]');
+    const isDefaultPos = () => {
+      const la = parseFloat(latIn.value), ln = parseFloat(lngIn.value);
+      return !isFinite(la) || !isFinite(ln) || (la === defaultCity.lat && ln === defaultCity.lng);
+    };
+    // Il resto del modulo si compila solo dopo il controllo del CIN (alloggi)
+    function syncCinUi() {
+      const lodging = isLodgingType($('[name="type"]').value);
+      const gated = lodging && !(cinState && cinState.ok);
+      $('#edRest').disabled = gated;
+      $('#edCinGate').hidden = !gated;
+      cinInput.readOnly = lodging && cinReadonly();
+      cinInput.classList.toggle('is-readonly', cinInput.readOnly);
+      const chk = $('#edCinCheck'), chg = $('#edCinChange');
+      if (chk) chk.hidden = !!(cinState && cinState.ok);
+      if (chg) chg.hidden = !(cinState && cinState.ok) || !!(cinState && cinState.fromPending);
+      $('#edCinResult').innerHTML = cinState && !cinState.fromSaved ? Trust.cinResultHtml(cinState) : '';
+      $('#useCentroid').hidden = !(lodging && cinState && cinState.ok && cinState.comune && isDefaultPos());
+    }
+    // Comune del CIN gia' controllato (salvato o in attesa): serve per la distanza
+    if (cinState && cinState.ok && !cinState.comune && !cinState.unchecked) {
+      const want = cinState;
+      Trust.comuneForCin(want.cin).then(c => {
+        if (cinState !== want) return;
+        if (c) want.comune = c; else if (!want.fromSaved) { cinState = { ok: false, error: t('cin.err.comune') }; }
+        if (view.name === 'editor' && $('#edRest')) syncCinUi();
+      }).catch(() => { want.unchecked = !want.fromSaved; });
+    }
+    applyTypeTexts(r.type);
+    syncCinUi();
+    $('[name="type"]').addEventListener('change', e => { applyTypeTexts(e.target.value); syncCinUi(); });
+    if (!cinLocked) cinInput.addEventListener('input', () => {
       const v = Trust.normCin(cinInput.value);
       if (v !== cinInput.value) cinInput.value = v;
     });
+    const doCheck = async () => {
+      const btn = $('#edCinCheck');
+      btn.disabled = true; btn.textContent = t('reg.cin.checking');
+      const res = await Trust.checkCin(cinInput.value);
+      if (view.name !== 'editor' || !$('#edCinCheck')) return;
+      btn.disabled = false; btn.textContent = t('reg.cin.check');
+      cinState = res.ok ? res : { ...res };
+      syncCinUi();
+      if (!res.ok) cinState = null;            // errore mostrato, si riprova
+      if (res.ok) { const n = $('[name="name"]'); if (n && !n.value) n.focus(); }
+    };
+    const chkBtn = $('#edCinCheck');
+    if (chkBtn) chkBtn.onclick = doCheck;
+    if (!cinLocked) cinInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !cinInput.readOnly) { e.preventDefault(); doCheck(); }
+    });
+    const chg = $('#edCinChange');
+    if (chg) chg.onclick = (e) => { e.preventDefault(); cinState = null; syncCinUi(); cinInput.focus(); };
+    [latIn, lngIn].forEach(i => i.addEventListener('input', () => syncCinUi()));
+    $('#useCentroid').onclick = () => {
+      const c = cinState && cinState.comune;
+      if (!c || !isDefaultPos()) return;
+      latIn.value = c.lat.toFixed(4); lngIn.value = c.lng.toFixed(4);
+      Trust.toast(t('ed.coords.filled', { comune: c.name }));
+      syncCinUi();
+    };
     $('#ownerCloseBtn').onclick = closePanel;
     $('#backBtn').onclick = (e) => { e.preventDefault(); renderDashboard(); };
     $('#addDish').onclick = () => {
@@ -505,11 +691,28 @@
 
       const err = validateTrust(payload, existing);
       if (err) { alert(err); return; }
+      if (isLodgingType(payload.type)) {
+        if (!(existing && existing.cin) && !(cinState && cinState.ok && cinState.cin === payload.cin)) {
+          alert(t('ed.cin.gate')); return;
+        }
+        let comune = cinState && cinState.comune;
+        if (!comune && !(cinState && cinState.unchecked)) {
+          try {
+            comune = await Trust.comuneForCin(payload.cin);
+            if (!comune && !(cinState && cinState.fromSaved)) { alert(t('cin.err.comune')); return; }
+          } catch { comune = null; }        // elenco non disponibile: controllo saltato
+        }
+        if (comune && !Trust.insideComune(comune, payload)) {
+          alert(t('ed.coords.far', { comune: comune.name })); return;
+        }
+      }
 
       const btn = e.target.querySelector('button[type="submit"]');
       if (btn) { btn.disabled = true; btn.textContent = t('ed.saving'); }
       try {
         await Store.saveRestaurant(payload);
+        const pend = Trust.getPendingCin(u.uid);
+        if (pend && pend.cin === payload.cin) Trust.setPendingCin(null);
         if (window.refreshPublicResults) window.refreshPublicResults();
         await renderDashboard();
       } catch (err) {
@@ -542,7 +745,11 @@
 
   // Legge il modulo dell'editor (stesso formato salvato in Firestore)
   function readEditorForm(form, existing) {
+    const rest = form.querySelector('#edRest');
+    const wasDisabled = rest && rest.disabled;
+    if (wasDisabled) rest.disabled = false;
     const fd = new FormData(form);
+    if (wasDisabled) rest.disabled = true;
     const hours = {};
     for (let i = 0; i < 7; i++) {
       const raw = (fd.get('hours_' + i) || '').trim();
@@ -620,7 +827,7 @@
     if (!p || !p.classList.contains('is-open')) return;
     if (view.name === 'editor' && $('#editorForm')) {
       const draft = readEditorForm($('#editorForm'), view.existing);
-      renderEditor(view.existing?.id || null, { draft, existing: view.existing });
+      renderEditor(view.existing?.id || null, { draft, existing: view.existing, cinState: view.getCinState ? view.getCinState() : null });
     } else if (view.name === 'auth') {
       renderAuthView(view.mode);
     } else {

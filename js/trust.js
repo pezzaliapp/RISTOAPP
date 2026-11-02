@@ -46,6 +46,82 @@
     return c && c.length <= 24 ? c : '';
   }
 
+  // ---------- CIN: Comune ISTAT (caratteri 3-8) ----------
+  // data-static/istat-comuni.json: codice -> [nome, sigla, lat, lng, raggioKm?]
+  // oppure codice -> "codice attuale" (Comuni soppressi/ricodificati).
+  // Caricato solo nell'area titolari, alla prima necessita'.
+  const ISTAT_URL = './data-static/istat-comuni.json?v=5.2.0';
+  const MAX_KM = 20;
+  let istatPromise = null;
+  function loadIstat() {
+    if (!istatPromise) {
+      istatPromise = fetch(ISTAT_URL)
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .catch(e => { istatPromise = null; throw e; });
+    }
+    return istatPromise;
+  }
+  function comuneFrom(table, code) {
+    let v = table[code];
+    if (typeof v === 'string') v = table[v];
+    if (!Array.isArray(v)) return null;
+    return { code, name: v[0], prov: v[1], lat: v[2], lng: v[3], radiusKm: v[4] || MAX_KM };
+  }
+  // -> comune | null (codice inesistente) ; rifiuta se la tabella non si carica
+  async function comuneForCin(cin) {
+    const table = await loadIstat();
+    return comuneFrom(table, normCin(cin).slice(2, 8));
+  }
+  function distanceKm(a, b) {
+    const R = 6371, r = x => x * Math.PI / 180;
+    const dLat = r(b.lat - a.lat), dLng = r(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  const insideComune = (comune, pos) => distanceKm(comune, pos) <= comune.radiusKm;
+
+  // Controllo completo: formato -> unicita' (Firestore) -> Comune.
+  // Risultato: { ok:true, cin, comune|null, unchecked } oppure { ok:false, error }
+  async function checkCin(raw) {
+    const cin = normCin(raw);
+    if (!cin) return { ok: false, error: t('ed.cin.required') };
+    if (!CIN_RE.test(cin)) return { ok: false, error: t('ed.cin.bad') };
+    const store = window.RistoStore;
+    try {
+      if (!store || typeof store.cinStatus !== 'function') throw new Error(t('cin.err.network'));
+      const st = await store.cinStatus(cin);
+      if (st.taken) return { ok: false, error: t(st.mine ? 'ed.cin.yours' : 'cin.err.taken') };
+    } catch (e) {
+      return { ok: false, error: e && e.message ? e.message : t('cin.err.network') };
+    }
+    let comune = null;
+    try { comune = await comuneForCin(cin); }
+    catch (e) { console.warn('Elenco Comuni non disponibile:', e); return { ok: true, cin, comune: null, unchecked: true }; }
+    if (!comune) return { ok: false, error: t('cin.err.comune') };
+    return { ok: true, cin, comune, unchecked: false };
+  }
+  function cinResultHtml(res) {
+    if (!res) return '';
+    if (!res.ok) return `<p class="cin-result is-error" role="alert">${esc(res.error)}</p>`;
+    return res.comune
+      ? `<p class="cin-result is-ok" role="status">\u2714\uFE0F ${esc(t('cin.ok', { comune: res.comune.name, prov: res.comune.prov }))}</p>`
+      : `<p class="cin-result is-warn" role="status">${esc(t('cin.okUnchecked'))}</p>`;
+  }
+
+  // CIN controllato prima di creare l'account: resta in attesa del primo annuncio
+  const PENDING_KEY = 'ristoapp-pending-cin';
+  function setPendingCin(data) {
+    try { if (data) localStorage.setItem(PENDING_KEY, JSON.stringify(data)); else localStorage.removeItem(PENDING_KEY); } catch {}
+  }
+  function getPendingCin(uid) {
+    try {
+      const p = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null');
+      if (!p || !CIN_RE.test(p.cin || '')) return null;
+      if (uid && p.uid && p.uid !== uid) return null;   // di un altro account
+      return p;
+    } catch { return null; }
+  }
+
   // ---------- frammenti HTML ----------
   function discountBtnHtml(r, n) {
     return `<button type="button" class="disc-btn" data-discount="${esc(r.id)}">
@@ -245,6 +321,8 @@
 
   window.RistoTrust = {
     MINISTRY_URL, CIN_RE, normCin, waDigits, validEmail, discountOf, cinOf,
+    loadIstat, comuneForCin, distanceKm, insideComune, checkCin, cinResultHtml,
+    setPendingCin, getPendingCin,
     discountBtnHtml, cinHtml, safetyHtml, reportLinkHtml,
     openDiscount, openReport, openTerms, closeSheet, copyText, toast,
   };
