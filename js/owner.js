@@ -336,7 +336,34 @@
              </div>
              <button class="btn-primary btn-full" id="addRestaurantBtn" style="margin-top:16px">${escapeHtml(t('owner.addAnother'))}</button>`
         }
+        <details class="danger-zone">
+          <summary>${escapeHtml(t('acct.delete.title'))}</summary>
+          <p>${escapeHtml(t('acct.delete.text'))}</p>
+          <label class="form-field">
+            <span>${escapeHtml(t('acct.delete.password'))}</span>
+            <input type="password" id="deletePwd" autocomplete="current-password" />
+          </label>
+          <label class="chip-check" style="margin:8px 0">
+            <input type="checkbox" id="deleteConfirm" />
+            <span>${escapeHtml(t('acct.delete.confirm'))}</span>
+          </label>
+          <button class="btn-primary btn-full danger-btn" id="deleteAccountBtn">${escapeHtml(t('acct.delete.button'))}</button>
+          <p class="editor-hint" id="deleteMsg" role="status"></p>
+        </details>
       </div>`;
+
+    const delBtn = $('#deleteAccountBtn');
+    if (delBtn) delBtn.onclick = async () => {
+      const msg = $('#deleteMsg');
+      if (!$('#deleteConfirm').checked) { msg.textContent = t('acct.delete.needConfirm'); msg.classList.add('is-error'); return; }
+      delBtn.disabled = true; msg.classList.remove('is-error'); msg.textContent = t('acct.delete.working');
+      try {
+        await Store.deleteAccount($('#deletePwd').value);
+        closePanel();
+        Trust.toast(t('acct.delete.done'));
+        if (window.refreshPublicResults) window.refreshPublicResults();
+      } catch (e) { msg.textContent = e.message; msg.classList.add('is-error'); delBtn.disabled = false; }
+    };
 
     $('#ownerCloseBtn').onclick = closePanel;
     $('#logoutBtn').onclick = async () => {

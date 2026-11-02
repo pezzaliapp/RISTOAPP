@@ -1528,3 +1528,9 @@ html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
 .editor-section--type .form-field { max-width: 360px; }
 
 [hidden] { display: none !important; }
+
+/* Zona pericolosa: eliminazione account */
+.danger-zone { margin-top: 28px; border-top: 1px solid var(--c-line); padding-top: 14px; }
+.danger-zone summary { cursor: pointer; color: var(--c-accent); font-weight: 600; font-size: 14px; }
+.danger-zone p { font-size: 13px; color: var(--c-muted); }
+.danger-btn { background: #8E2B20 !important; }

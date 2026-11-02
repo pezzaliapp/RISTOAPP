@@ -52,7 +52,7 @@
       myRestaurants: async () => [], getRestaurant: async () => null,
       saveRestaurant: offline, deleteRestaurant: offline,
       allPublicRestaurants: async () => [],
-      resendVerification: offline, reloadUser: offline, cinStatus: offline,
+      resendVerification: offline, reloadUser: offline, cinStatus: offline, deleteAccount: offline,
       report: () => Promise.reject(new Error(t('rep.offline'))),
     };
     return;
@@ -355,6 +355,34 @@
         if (c && c.exists && c.data().owner === u.uid) batch.delete(cinRef);
       }
       await batch.commit();
+    },
+
+    // Cancellazione completa dell'account (diritto alla cancellazione, GDPR):
+    // 1) conferma la password (Firebase la richiede per operazioni delicate)
+    // 2) elimina tutti gli annunci del titolare e i loro CIN (si liberano)
+    // 3) elimina l'account di accesso
+    async deleteAccount(password) {
+      const fbUser = auth.currentUser;
+      if (!fbUser) throw new Error(t('auth.notLoggedIn'));
+      try {
+        const cred = firebase.auth.EmailAuthProvider.credential(fbUser.email, password || '');
+        await fbUser.reauthenticateWithCredential(cred);
+      } catch (e) { throw new Error(friendlyAuthError(e)); }
+      const snap = await db.collection(RESTAURANTS).where('owner', '==', fbUser.uid).get();
+      for (const doc of snap.docs) {
+        const batch = db.batch();
+        batch.delete(doc.ref);
+        const cin = doc.data().cin;
+        if (cin) {
+          const cinRef = db.collection(CINS).doc(cin);
+          const c = await cinRef.get().catch(() => null);
+          if (c && c.exists && c.data().owner === fbUser.uid) batch.delete(cinRef);
+        }
+        await batch.commit();
+      }
+      try { await fbUser.delete(); } catch (e) { throw new Error(friendlyAuthError(e)); }
+      try { ['ristoapp-pending-cin', 'ristoapp-verify-sent'].forEach(k => localStorage.removeItem(k)); } catch {}
+      currentUserObj = null;
     },
 
     async allPublicRestaurants() {
