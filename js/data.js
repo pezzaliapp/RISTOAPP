@@ -106,7 +106,7 @@ const RISTOAPP_CONFIG = {
   defaultRadius: 3000,
   maxRadius:    10000,
 
-  version: '5.3.0',
+  version: '5.3.1',
 
   // ------------------------------------------------------------------
   //  CHI GESTISCE RISTOAPP (unico punto da compilare)

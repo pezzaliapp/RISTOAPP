@@ -1176,7 +1176,7 @@ out center tags qt;`;
       try { modalReturnFocus.focus({ preventScroll: true }); } catch {}
     }
     modalReturnFocus = null;
-    if (pendingUpdate) maybeApplyUpdate();
+    maybeReload();
   }
 
   // -------------- TOAST -----------------------------------
@@ -1238,73 +1238,50 @@ out center tags qt;`;
   }
 
   // -------------- AGGIORNAMENTI (service worker) ----------
-  let pendingUpdate = null;     // service worker in attesa
+  // La nuova versione si attiva da sola (sw.js fa skipWaiting). Qui la pagina
+  // si ricarica subito, tranne se l'utente sta compilando un modulo: in quel
+  // caso mostra "Aggiornamento disponibile" e ricarica appena il modulo si chiude.
   let formDirty = false;        // l'utente ha scritto in un modulo (titolari/segnalazione)
   document.addEventListener('input', e => {
-    if (e.target && e.target.closest && e.target.closest('#ownerPanel, #sheetBackdrop')) formDirty = true;
+    if (e.target && e.target.closest && e.target.closest('#ownerPanel, #sheetBackdrop, #modalBackdrop')) formDirty = true;
   }, true);
   function uiBusy() {
     const open = sel => { const el = document.querySelector(sel); return !!(el && el.classList.contains('is-open')); };
     if (open('#ownerPanel') || open('#modalBackdrop') || open('#sheetBackdrop')) return true;
-    if (formDirty) return true;
-    const a = document.activeElement;
-    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'langSelect') return true;
-    return false;
+    return formDirty;
   }
-  function showUpdateToast() {
-    const el = $('#updateToast');
-    if (el) el.hidden = false;
-  }
-  let updateRequested = false;   // l'utente (o l'app inattiva) ha chiesto la nuova versione
-  let activatedElsewhere = false; // nuova versione gia' attiva (es. da un'altra scheda)
-  let reloading = false;
+  let updateReady = false, reloading = false;
   function reloadNow() { if (reloading) return; reloading = true; location.reload(); }
-  function applyUpdate() {
-    updateRequested = true;
-    if (pendingUpdate) pendingUpdate.postMessage({ type: 'SKIP_WAITING' });
-    else if (activatedElsewhere) reloadNow();
-  }
-  function maybeApplyUpdate() {
-    if (!pendingUpdate && !activatedElsewhere) return;
-    if (uiBusy()) showUpdateToast(); else applyUpdate();
+  function maybeReload() {
+    if (!updateReady) return;
+    if (uiBusy()) { const el = $('#updateToast'); if (el) el.hidden = false; }
+    else reloadNow();
   }
   function setupServiceWorker() {
     if (!('serviceWorker' in navigator)) return;
     let hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      // primo avvio (nessuna versione precedente): niente ricarica
-      if (!hadController && !updateRequested) { hadController = true; return; }
-      if (updateRequested) { reloadNow(); return; }
-      // attivata da un'altra scheda: ricarica solo se l'utente non sta facendo nulla
-      activatedElsewhere = true;
-      maybeApplyUpdate();
+      if (!hadController) { hadController = true; return; } // primo avvio: niente ricarica
+      updateReady = true;
+      maybeReload();
     });
     const btn = $('#updateToastBtn');
-    if (btn) btn.addEventListener('click', applyUpdate);
-    const track = reg => {
-      const waiting = () => {
-        if (reg.waiting && navigator.serviceWorker.controller) { pendingUpdate = reg.waiting; maybeApplyUpdate(); }
-      };
-      waiting();
-      reg.addEventListener('updatefound', () => {
-        const nw = reg.installing;
-        if (!nw) return;
-        nw.addEventListener('statechange', () => { if (nw.state === 'installed') waiting(); });
-      });
-    };
+    if (btn) btn.addEventListener('click', reloadNow);
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
         .then(reg => {
-          track(reg);
+          // vecchie versioni rimaste in attesa (es. 5.3.0 dopo 5.2.2): attivale
+          if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
           reg.update().catch(()=>{});
           document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') reg.update().catch(()=>{});
           });
+          setInterval(() => reg.update().catch(()=>{}), 30 * 60 * 1000);
         })
         .catch(()=>{});
     });
-    // chiusura di pannello/foglio: se c'e' un aggiornamento in attesa, riprova
-    window.addEventListener('ristoapp:ui-idle', () => { formDirty = false; maybeApplyUpdate(); });
+    // chiusura di pannello/foglio: se c'e' un aggiornamento pronto, ricarica
+    window.addEventListener('ristoapp:ui-idle', () => { formDirty = false; maybeReload(); });
   }
 
   // -------------- INIT ------------------------------------

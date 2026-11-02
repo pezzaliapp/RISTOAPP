@@ -10,7 +10,7 @@
  *  Aggiornare CACHE_NAME ad ogni rilascio.
  * ============================================================ */
 
-const CACHE_NAME = 'ristoapp-v5.3.0';
+const CACHE_NAME = 'ristoapp-v5.3.1';
 const DATA_CACHE = 'ristoapp-data-v1';     // sopravvive ai rilasci (dati settimanali)
 const DATA_MAX_ENTRIES = 300;
 const ASSETS = [
@@ -38,9 +38,9 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-      // Primo avvio (nessuna versione attiva): si attiva subito.
-      // Aggiornamento: resta in attesa finche' la pagina non lo chiede.
-      .then(() => { if (!self.registration.active) return self.skipWaiting(); })
+      // Sempre attiva subito: l'utente non deve fare nulla per aggiornare.
+      // La pagina ricarica da sola appena non sta compilando un modulo.
+      .then(() => self.skipWaiting())
   );
 });
 

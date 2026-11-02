@@ -4,7 +4,7 @@
 
 PWA che cerca locali **reali** da OpenStreetMap e ti porta con un click al menu/prezzi su JustEat, Deliveroo, TheFork, Glovo, Google o TripAdvisor.
 
-![Status](https://img.shields.io/badge/status-v5.3.0-C44536)
+![Status](https://img.shields.io/badge/status-v5.3.1-C44536)
 ![PWA](https://img.shields.io/badge/PWA-ready-606C38)
 ![Data](https://img.shields.io/badge/data-OpenStreetMap-7A6A5C)
 
