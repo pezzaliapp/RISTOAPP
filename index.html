@@ -43,7 +43,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="./css/styles.css?v=5.0.0" />
+  <link rel="stylesheet" href="./css/styles.css?v=5.1.0" />
 </head>
 <body>
 
@@ -124,9 +124,9 @@
         <ol class="owner-cta-steps">
           <li data-i18n-html="cta.step1"><strong>Crea un account</strong> con la tua email</li>
           <li data-i18n-html="cta.step2"><strong>Inserisci la struttura</strong>: camere, prezzi a notte, servizi</li>
-          <li data-i18n-html="cta.step3"><strong>Compari in cima</strong> alle ricerche, col segno &#10003; del titolare</li>
+          <li data-i18n-html="cta.step3"><strong>Compari in cima</strong> alle ricerche e offri uno sconto a chi prenota da qui</li>
         </ol>
-        <p class="owner-cta-note" data-i18n="cta.note">Gratis per sempre &middot; Nessuna commissione &middot; Gli ospiti ti contattano direttamente</p>
+        <p class="owner-cta-note" data-i18n="cta.note">Gratis. RistoApp non ti chiede commissioni: chi ti contatta da qui prenota direttamente con te, e puoi offrirgli uno sconto.</p>
       </div>
       <button class="owner-cta-btn" data-owner-register data-i18n="cta.btn">Registrati gratis</button>
     </aside>
@@ -190,7 +190,8 @@
   <!-- FOOTER -->
   <footer class="app-footer">
     <p data-i18n-html="footer.data"><strong>RistoApp</strong> &middot; Dati dei locali: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">&copy; OpenStreetMap contributors</a> (licenza ODbL).</p>
-    <p data-i18n="footer.note">RistoApp non memorizza men&ugrave;, prezzi o prenotazioni. I bottoni JustEat, Deliveroo, TheFork, Glovo, Booking e Airbnb aprono la ricerca sui rispettivi portali ufficiali.</p>
+    <p data-i18n="footer.note">RistoApp &egrave; un elenco informativo: non gestisce prenotazioni n&eacute; pagamenti. I bottoni dei portali aprono la ricerca sui siti ufficiali.</p>
+    <p><a href="#" class="footer-link" data-terms data-i18n="terms.link">Avvertenze e condizioni d&rsquo;uso</a></p>
   </footer>
 
   <!-- MODAL -->
@@ -206,14 +207,16 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="./js/i18n.js?v=5.0.0"></script>
-  <script src="./js/data.js?v=5.0.0"></script>
+  <script src="./js/i18n.js?v=5.1.0"></script>
+  <script src="./js/i18n-trust.js?v=5.1.0"></script>
+  <script src="./js/data.js?v=5.1.0"></script>
   <!-- Firebase SDK (compat) - Fase 2 backend condiviso -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="./js/store.js?v=5.0.0"></script>
-  <script src="./js/owner.js?v=5.0.0"></script>
-  <script src="./js/app.js?v=5.0.0"></script>
+  <script src="./js/store.js?v=5.1.0"></script>
+  <script src="./js/trust.js?v=5.1.0"></script>
+  <script src="./js/owner.js?v=5.1.0"></script>
+  <script src="./js/app.js?v=5.1.0"></script>
 </body>
 </html>

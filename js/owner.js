@@ -10,6 +10,11 @@
   const $ = (s, r = document) => r.querySelector(s);
   const I18N = window.I18N;
   const t = (k, p) => I18N.t(k, p);
+  const Trust = window.RistoTrust;
+  // Codice da pubblicare sul sito ufficiale per la verifica automatica
+  const verifyCode = id => 'ristoapp-verifica-' + id;
+  // Sito accettato: http(s)://... oppure un dominio (https:// aggiunto da store.js)
+  const okWebsite = u => !u || /^https?:\/\/[^\s"'<>]+$/i.test(u) || /^[a-z0-9.-]+\.[a-z]{2,}(\/[^\s"'<>]*)?$/i.test(u);
 
   // Giorni settimana (0 = domenica), tradotti al momento dell'uso
   const dayName = i => t('day.' + i);
@@ -38,6 +43,13 @@
     set('edHoursTitle', t.hoursTitle); set('edHoursHint', t.hoursHint);
     set('edFeatTitle', t.featTitle); set('edFeatHint', t.featHint);
     set('edMenuTitle', t.menuTitle); set('addDish', t.addBtn); set('edMenuHint', t.menuHint);
+    set('edDeclText', escapeHtml(I18N.t(editingLodging ? 'ed.decl.lodging' : 'ed.decl.food')));
+    // Sezioni solo per alloggi (CIN, prenotazione diretta): nascoste e
+    // disattivate per i locali, cosi' non vengono validate ne' inviate
+    document.querySelectorAll('[data-only="lodging"]').forEach(sec => {
+      sec.style.display = editingLodging ? '' : 'none';
+      sec.querySelectorAll('input').forEach(i => { i.disabled = !editingLodging; });
+    });
     document.querySelectorAll('[name^="hours_"]').forEach(i => i.placeholder = t.hoursPh);
     const f = document.querySelector('[name="features"]'); if (f) f.placeholder = t.featPh;
     document.querySelectorAll('.menu-row [name="dish"]').forEach(i => i.placeholder = t.itemPh);
@@ -165,6 +177,17 @@
       return;
     }
 
+    const emailBanner = u.emailVerified ? '' : `
+      <div class="notice-box" id="emailBanner">
+        <strong>\u2709\uFE0F ${escapeHtml(t('dash.email.title'))}</strong>
+        <p>${escapeHtml(t('dash.email.text', { email: u.email }))}</p>
+        <div class="notice-actions">
+          <button type="button" class="chip" id="resendEmailBtn">${escapeHtml(t('dash.email.resend'))}</button>
+          <button type="button" class="btn-primary" id="confirmedEmailBtn">${escapeHtml(t('dash.email.done'))}</button>
+        </div>
+        <p class="notice-msg" id="emailMsg" role="status"></p>
+      </div>`;
+
     inner.innerHTML = `
       <div class="owner-head">
         <div>
@@ -180,6 +203,7 @@
         </div>
       </div>
       <div class="owner-body">
+        ${emailBanner}
         ${mine.length === 0
           ? `<div class="empty-box">
                <p><strong>${escapeHtml(t('owner.empty.title'))}</strong></p>
@@ -188,6 +212,7 @@
              </div>`
           : `<div class="my-list">
                ${mine.map(r => `
+                 <div class="my-entry">
                  <div class="my-item">
                    <div style="min-width:0">
                      <div class="my-item-title">${escapeHtml(r.name)}</div>
@@ -197,6 +222,8 @@
                      <button class="chip" data-edit="${r.id}">${escapeHtml(t('owner.edit'))}</button>
                      <button class="chip chip-danger" data-delete="${r.id}">${escapeHtml(t('owner.delete'))}</button>
                    </div>
+                 </div>
+                 ${isLodgingType(r.type) ? verifyBlockHtml(r) : ''}
                  </div>`).join('')}
              </div>
              <button class="btn-primary btn-full" id="addRestaurantBtn" style="margin-top:16px">${escapeHtml(t('owner.addAnother'))}</button>`
@@ -210,6 +237,26 @@
       if (window.refreshPublicResults) window.refreshPublicResults();
     };
     const addBtn = $('#addRestaurantBtn'); if (addBtn) addBtn.onclick = () => renderEditor(null);
+    inner.querySelectorAll('[data-copy-code]').forEach(b => b.onclick = () => Trust.copyText(b.dataset.copyCode, 'dash.verify.copied'));
+    const resend = $('#resendEmailBtn');
+    if (resend) resend.onclick = async () => {
+      const msg = $('#emailMsg');
+      resend.disabled = true;
+      try { await Store.resendVerification(); msg.textContent = t('dash.email.sent'); msg.classList.remove('is-error'); }
+      catch (e) { msg.textContent = e.message; msg.classList.add('is-error'); }
+      resend.disabled = false;
+    };
+    const confirmed = $('#confirmedEmailBtn');
+    if (confirmed) confirmed.onclick = async () => {
+      const msg = $('#emailMsg');
+      confirmed.disabled = true;
+      try {
+        const nu = await Store.reloadUser();
+        if (nu && nu.emailVerified) { Trust.toast(t('dash.email.ok')); await renderDashboard(); return; }
+        msg.textContent = t('dash.email.still'); msg.classList.add('is-error');
+      } catch (e) { msg.textContent = e.message; msg.classList.add('is-error'); }
+      confirmed.disabled = false;
+    };
     inner.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => renderEditor(b.dataset.edit));
     inner.querySelectorAll('[data-delete]').forEach(b => b.onclick = async () => {
       if (confirm(t('owner.confirmDelete'))) {
@@ -220,6 +267,36 @@
         } catch (e) { alert(e.message); }
       }
     });
+  }
+
+  // Stato di verifica di un alloggio + istruzioni (metodi automatici)
+  function verifyBlockHtml(r) {
+    const code = verifyCode(r.id);
+    const status = r.hidden === true
+      ? `<span class="status-pill is-hidden">${escapeHtml(t('dash.hidden'))}</span>`
+      : r.verified === true
+        ? `<span class="status-pill is-ok">${escapeHtml(t('dash.verified'))}</span>`
+        : `<span class="status-pill is-pending">${escapeHtml(t('dash.pending'))}</span>`;
+    const cin = r.cin
+      ? `<span class="my-cin">${escapeHtml(t('dash.cin', { cin: r.cin }))}</span>`
+      : `<span class="my-cin is-missing">${escapeHtml(t('dash.noCin'))}</span>`;
+    const how = r.verified === true ? '' : `
+      <details class="verify-how" open>
+        <summary>${escapeHtml(t('dash.verify.title'))}</summary>
+        <p>${escapeHtml(t('dash.verify.intro'))}</p>
+        <div class="verify-code">
+          <span>${escapeHtml(t('dash.verify.code'))}</span>
+          <code>${escapeHtml(code)}</code>
+          <button type="button" class="chip" data-copy-code="${escapeAttr(code)}">${escapeHtml(t('dash.verify.copy'))}</button>
+        </div>
+        <ol>
+          <li>${t('dash.verify.a', { code: escapeHtml(code) })}</li>
+          <li>${t('dash.verify.b')}</li>
+        </ol>
+        ${r.website ? '' : `<p class="editor-warn">${escapeHtml(t('dash.verify.noSite'))}</p>`}
+        <p class="editor-hint" style="margin:0">${escapeHtml(t('dash.verify.why'))}</p>
+      </details>`;
+    return `<div class="verify-box"><div class="verify-status">${status}${cin}</div>${how}</div>`;
   }
 
   // -------------- EDITOR LOCALE -----------------------------
@@ -242,7 +319,12 @@
       payments: ['contanti','carta'],
       features: [],
       menu: [],
+      cin: '', directDiscount: '', whatsapp: '', contactEmail: '', declared: false,
     };
+    const u = Store.currentUser() || {};
+    // In modifica non si passa da locale ad alloggio (il CIN non si aggiunge dopo)
+    const lockedKind = existing ? (isLodgingType(existing.type) ? 'lodging' : 'food') : null;
+    const cinLocked = !!(existing && existing.cin);
 
     inner.innerHTML = `
       <div class="owner-head">
@@ -269,12 +351,12 @@
             <label class="form-field">
               <span>${escapeHtml(t('ed.type'))}</span>
               <select name="type" required>
-                <optgroup label="${escapeAttr(t('ed.groupFood'))}">
+                ${lockedKind === 'lodging' ? '' : `<optgroup label="${escapeAttr(t('ed.groupFood'))}">
                   ${FOOD_TYPES.map(ty => `<option value="${escapeAttr(ty)}" ${r.type === ty ? 'selected' : ''}>${escapeHtml(I18N.typeLabel(ty))}</option>`).join('')}
-                </optgroup>
-                <optgroup label="${escapeAttr(t('ed.groupLodging'))}">
+                </optgroup>`}
+                ${lockedKind === 'food' ? '' : `<optgroup label="${escapeAttr(t('ed.groupLodging'))}">
                   ${LODGING_TYPES.map(ty => `<option value="${escapeAttr(ty)}" ${r.type === ty ? 'selected' : ''}>${escapeHtml(I18N.typeLabel(ty))}</option>`).join('')}
-                </optgroup>
+                </optgroup>`}
               </select>
             </label>
             <label class="form-field grid-col-2">
@@ -298,6 +380,37 @@
               <input name="lng" type="number" step="0.0001" required value="${r.lng}" />
             </label>
             <p class="editor-hint grid-col-2">${t('ed.coordsHint')}</p>
+          </div>
+        </div>
+
+        <div class="editor-section" data-only="lodging">
+          <h3>${escapeHtml(t('ed.cin.section'))}</h3>
+          ${u.emailVerified ? '' : `<p class="editor-warn">${escapeHtml(t('ed.needVerifiedEmail'))}</p>`}
+          <label class="form-field">
+            <span>${escapeHtml(t('ed.cin.label'))}</span>
+            <input name="cin" value="${escapeAttr(r.cin || '')}" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false"
+              placeholder="IT043013C2ABC12345" ${cinLocked ? 'readonly class="is-readonly"' : ''} />
+          </label>
+          <p class="editor-hint" style="margin:8px 0 0">${cinLocked ? escapeHtml(t('ed.cin.locked')) : t('ed.cin.hint')}</p>
+        </div>
+
+        <div class="editor-section" data-only="lodging">
+          <h3>${escapeHtml(t('ed.direct.title'))}</h3>
+          <p class="editor-hint">${escapeHtml(t('ed.direct.hint'))}</p>
+          <div class="grid-2">
+            <label class="form-field grid-col-2">
+              <span>${escapeHtml(t('ed.direct.discount'))}</span>
+              <input name="directDiscount" type="number" min="0" max="30" step="1" inputmode="numeric" value="${escapeAttr(r.directDiscount ?? '')}" placeholder="10" class="input-short" />
+            </label>
+            <p class="editor-hint grid-col-2" style="margin:-6px 0 0">${escapeHtml(t('ed.direct.discountHint'))}</p>
+            <label class="form-field">
+              <span>${escapeHtml(t('ed.direct.whatsapp'))}</span>
+              <input name="whatsapp" type="tel" value="${escapeAttr(r.whatsapp || '')}" placeholder="+39 333 1234567" />
+            </label>
+            <label class="form-field">
+              <span>${escapeHtml(t('ed.direct.email'))}</span>
+              <input name="contactEmail" type="email" value="${escapeAttr(r.contactEmail || '')}" placeholder="${escapeAttr(t('ed.direct.emailPh'))}" />
+            </label>
           </div>
         </div>
 
@@ -343,6 +456,15 @@
           </div>
         </div>
 
+        <div class="editor-section decl-section">
+          <h3>${escapeHtml(t('ed.decl.title'))}</h3>
+          <label class="decl-check">
+            <input type="checkbox" name="declared" ${r.declared ? 'checked' : ''} />
+            <span id="edDeclText"></span>
+          </label>
+          <p class="editor-hint" style="margin:10px 0 0"><a href="#" data-terms>${escapeHtml(t('ed.decl.terms'))}</a></p>
+        </div>
+
         <div class="editor-actions">
           <button type="submit" class="btn-primary btn-full">${escapeHtml(t(existing ? 'ed.save' : 'ed.publish'))}</button>
         </div>
@@ -350,6 +472,11 @@
 
     applyTypeTexts(r.type);
     $('[name="type"]').addEventListener('change', e => applyTypeTexts(e.target.value));
+    const cinInput = $('[name="cin"]');
+    if (cinInput && !cinLocked) cinInput.addEventListener('input', () => {
+      const v = Trust.normCin(cinInput.value);
+      if (v !== cinInput.value) cinInput.value = v;
+    });
     $('#ownerCloseBtn').onclick = closePanel;
     $('#backBtn').onclick = (e) => { e.preventDefault(); renderDashboard(); };
     $('#addDish').onclick = () => {
@@ -376,6 +503,9 @@
       // le righe incomplete servono solo a ridisegnare l'editor
       payload.menu = payload.menu.filter(m => m.dish && typeof m.price === 'number' && !isNaN(m.price));
 
+      const err = validateTrust(payload, existing);
+      if (err) { alert(err); return; }
+
       const btn = e.target.querySelector('button[type="submit"]');
       if (btn) { btn.disabled = true; btn.textContent = t('ed.saving'); }
       try {
@@ -387,6 +517,27 @@
         if (btn) { btn.disabled = false; btn.textContent = t(existing ? 'ed.save' : 'ed.publish'); }
       }
     };
+  }
+
+  // Controlli: sito, CIN, sconto, contatti, email confermata, dichiarazione
+  function validateTrust(p, existing) {
+    if (!okWebsite(p.website)) return t('ed.badWebsite');
+    if (isLodgingType(p.type)) {
+      const u = Store.currentUser() || {};
+      if (!u.emailVerified) return t('ed.needVerifiedEmail');
+      if (!(existing && existing.cin)) {
+        if (!p.cin) return t('ed.cin.required');
+        if (!Trust.CIN_RE.test(p.cin)) return t('ed.cin.bad');
+      }
+      const d = p.directDiscount === '' ? 0 : Number(p.directDiscount);
+      if (!Number.isInteger(d) || d < 0 || d > 30) return t('ed.badDiscount');
+      p.directDiscount = d;
+      if (p.whatsapp && !Trust.waDigits(p.whatsapp)) return t('ed.badWhatsapp');
+      if (p.contactEmail && !Trust.validEmail(p.contactEmail)) return t('ed.badEmail');
+      if (d > 0 && !p.phone && !p.whatsapp && !p.contactEmail) return t('ed.direct.needContact');
+    }
+    if (!p.declared) return t('ed.decl.required');
+    return null;
   }
 
   // Legge il modulo dell'editor (stesso formato salvato in Firestore)
@@ -417,6 +568,12 @@
       payments: fd.getAll('payments'),
       features: (fd.get('features') || '').split(',').map(s => s.trim()).filter(Boolean),
       menu,
+      // il CIN gia' salvato non cambia (campo in sola lettura)
+      cin: existing?.cin || Trust.normCin(form.querySelector('[name="cin"]')?.value),
+      directDiscount: String(form.querySelector('[name="directDiscount"]')?.value ?? '').trim(),
+      whatsapp: (form.querySelector('[name="whatsapp"]')?.value || '').trim(),
+      contactEmail: (form.querySelector('[name="contactEmail"]')?.value || '').trim(),
+      declared: !!form.querySelector('[name="declared"]')?.checked,
     };
   }
 

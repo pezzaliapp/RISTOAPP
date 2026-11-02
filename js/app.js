@@ -11,6 +11,7 @@
   const CFG = window.RISTOAPP_CONFIG;
   const I18N = window.I18N;
   const t = (k, p) => I18N.t(k, p);
+  const Trust = window.RistoTrust;
 
   // Errore con chiave di traduzione: il messaggio si ritraduce al cambio lingua
   function i18nError(key, params) {
@@ -556,8 +557,9 @@ out center tags qt;`;
         break;
     }
 
-    // I ristoranti verificati dal titolare vanno sempre in cima
-    res.sort((a,b) => (b.userGenerated ? 1 : 0) - (a.userGenerated ? 1 : 0));
+    // In cima: alloggi verificati, poi gli altri dati dei titolari, poi OSM
+    const rank = r => (r.userGenerated ? 1 : 0) + (r.userGenerated && r.verified ? 1 : 0);
+    res.sort((a,b) => rank(b) - rank(a));
 
     return res;
   }
@@ -791,6 +793,15 @@ out center tags qt;`;
       : '';
 
     const isBnb = isLodging(r);
+    const discount = Trust.discountOf(r, isBnb);
+    // Alloggi dei titolari: "Verificato" solo se il titolare ha provato il sito
+    const ownerVerified = r.userGenerated && (!isBnb || r.verified === true);
+    const badgeHtml = !r.userGenerated ? ''
+      : isBnb
+        ? (r.verified === true
+            ? `<div class="verified-badge">\u2713 ${escapeHtml(t('card.verified'))}</div>`
+            : `<div class="verified-badge is-unverified">${escapeHtml(t('card.unverified'))}</div>`)
+        : `<div class="verified-badge">\u2713 ${escapeHtml(t('card.verifiedFood'))}</div>`;
     const stars = /^\d$/.test(r.rawTags?.stars || '') ? ' ' + '\u2605'.repeat(+r.rawTags.stars) : '';
 
     // Deep link portali (sempre visibili come riga principale)
@@ -824,8 +835,8 @@ out center tags qt;`;
       </a>`;
 
     return `
-      <article class="card ${r.userGenerated ? 'is-verified' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms">
-        ${r.userGenerated ? `<div class="verified-badge">\u2713 ${escapeHtml(t(isLodging(r) ? 'card.verifiedLodging' : 'card.verifiedFood'))}</div>` : ''}
+      <article class="card ${ownerVerified ? 'is-verified' : r.userGenerated ? 'is-owner' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms">
+        ${badgeHtml}
         <div class="card-top">
           <div>
             <h3 class="card-title">${escapeHtml(r.name)}</h3>
@@ -844,6 +855,8 @@ out center tags qt;`;
         ${r.address ? `<div class="card-meta"><span>${escapeHtml(r.address)}</span>${r._dishMatch && distTxt ? ` \u00B7 <span>${distTxt}</span>` : ''}</div>` : ''}
         ${hoursHtml}
         ${badgesHtml ? `<div class="card-tags">${badgesHtml}</div>` : ''}
+
+        ${discount ? Trust.discountBtnHtml(r, discount) : ''}
 
         ${r.userGenerated ? '' : `<div class="portals-row">${portalBtns}</div>`}
 
@@ -868,6 +881,14 @@ out center tags qt;`;
     openDetailsId = id;
     const links = deepLinks(r);
     const amenityLabel = I18N.amenityLabel(r.amenity);
+    const lodging = isLodging(r);
+    const discount = Trust.discountOf(r, lodging);
+    const cin = lodging ? Trust.cinOf(r) : '';
+    const titleCheck = r.userGenerated && (!lodging || r.verified === true);
+    const verifyNote = r.userGenerated && lodging
+      ? `<p class="verify-note ${r.verified === true ? 'is-ok' : ''}">${escapeHtml(t(r.verified === true ? 'modal.verifiedNote' : 'modal.unverifiedNote'))}</p>` : '';
+    const waNum = r.userGenerated ? Trust.waDigits(r.whatsapp) : '';
+    const mail = r.userGenerated && Trust.validEmail(r.contactEmail) ? r.contactEmail : '';
 
     // Per ristoranti user-gen: menu completo + orari strutturati
     const userGenMenuHtml = r.userGenerated && Array.isArray(r.menu) && r.menu.length ? `
@@ -926,7 +947,7 @@ out center tags qt;`;
     $('#modalContent').innerHTML = `
       <div class="modal-head">
         <div>
-          <h3>${escapeHtml(r.name)}${r.userGenerated ? ' <span class="verified-inline">\u2713</span>' : ''}</h3>
+          <h3>${escapeHtml(r.name)}${titleCheck ? ' <span class="verified-inline">\u2713</span>' : ''}</h3>
           <div class="card-type">${escapeHtml(r.type ? I18N.typeLabel(r.type) : (isLodging(r) ? lodgingLabel(r) : amenityLabel))}${r.cuisine && !r.userGenerated && !isLodging(r) ? ' \u00B7 ' + escapeHtml(r.cuisine) : ''}</div>
         </div>
         <button class="modal-close" id="modalCloseBtn" aria-label="${escapeHtml(t('modal.close'))}">
@@ -934,6 +955,8 @@ out center tags qt;`;
         </button>
       </div>
       <div class="modal-body">
+        ${discount ? `<div class="modal-section">${Trust.discountBtnHtml(r, discount)}</div>` : ''}
+        ${verifyNote}
         ${userGenMenuHtml}
         ${userGenHoursHtml}
 
@@ -941,7 +964,9 @@ out center tags qt;`;
           <h4>${escapeHtml(t('modal.contacts'))}</h4>
           ${r.address ? `<p><strong>${escapeHtml(t('modal.address'))}</strong> ${escapeHtml(r.address)}</p>` : ''}
           ${r.phone   ? `<p><strong>${escapeHtml(t('modal.phone'))}</strong> <a href="tel:${r.phone.replace(/\s/g,'')}">${escapeHtml(r.phone)}</a></p>` : ''}
-          ${r.website ? `<p><strong>${escapeHtml(t('modal.site'))}</strong> <a href="${escapeHtml(r.website)}" target="_blank" rel="noopener">${escapeHtml(r.website)}</a></p>` : ''}
+          ${/^https?:\/\//i.test(r.website || '') ? `<p><strong>${escapeHtml(t('modal.site'))}</strong> <a href="${escapeHtml(r.website)}" target="_blank" rel="noopener">${escapeHtml(r.website)}</a></p>` : ''}
+          ${waNum ? `<p><strong>${escapeHtml(t('modal.whatsapp'))}</strong> <a href="https://wa.me/${waNum}" target="_blank" rel="noopener">+${escapeHtml(waNum)}</a></p>` : ''}
+          ${mail ? `<p><strong>${escapeHtml(t('modal.email'))}</strong> <a href="mailto:${escapeHtml(mail)}">${escapeHtml(mail)}</a></p>` : ''}
           <p style="margin-top:12px">
             <a class="btn-outline" style="display:inline-flex;padding:10px 18px" href="${links.maps}" target="_blank" rel="noopener">${escapeHtml(t('modal.openMaps'))} \u2197</a>
           </p>
@@ -960,6 +985,9 @@ out center tags qt;`;
           <h4>${escapeHtml(t('modal.hours'))}</h4>
           <p style="color:var(--c-muted)">${escapeHtml(t('modal.noHours'))}</p>
         </div>`)}
+
+        ${Trust.cinHtml(cin)}
+        ${lodging ? Trust.safetyHtml(r.id, r.name) : ''}
 
         ${isLodging(r) ? `
         <div class="modal-section">
@@ -1001,6 +1029,7 @@ out center tags qt;`;
               ? escapeHtml(t('modal.ownerData'))
               : t('modal.osmData', { url: 'https://www.openstreetmap.org/' + escapeHtml(r.id) })}
           </p>
+          <p style="margin:8px 0 0">${Trust.reportLinkHtml(r.id, r.name)}</p>
         </div>
       </div>`;
     $('#modalBackdrop').classList.add('is-open');
@@ -1132,9 +1161,19 @@ out center tags qt;`;
     });
 
     // Delegation card
+    const openDiscountFor = id => {
+      const r = state.restaurants.find(x => x.id === id);
+      if (r) Trust.openDiscount(r);
+    };
     $('#results').addEventListener('click', (e) => {
+      const disc = e.target.closest('[data-discount]');
+      if (disc) { openDiscountFor(disc.dataset.discount); return; }
       const btn = e.target.closest('[data-details]');
       if (btn) openDetails(btn.dataset.details);
+    });
+    $('#modalContent').addEventListener('click', (e) => {
+      const disc = e.target.closest('[data-discount]');
+      if (disc) openDiscountFor(disc.dataset.discount);
     });
 
     // Modal

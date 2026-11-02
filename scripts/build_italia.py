@@ -31,7 +31,7 @@ PLACE_RANK = {"city": 1, "town": 2, "suburb": 3, "village": 3, "quarter": 4, "ha
 EXTRA_TAGS = ["stars", "rooms", "beds", "guest_house", "check_in", "check_out",
               "brand", "capacity", "reservation", "smoking", "internet_access",
               "air_conditioning", "diet:halal", "diet:kosher", "drive_through",
-              "level", "description", "email", "contact:email"]
+              "level", "description", "email", "contact:email", "ref:cin"]
 # tourism=* -> categoria alloggio usata dall'app
 LODGING = {"guest_house": "guest_house", "hotel": "hotel", "motel": "hotel",
            "hostel": "hostel", "apartment": "apartment", "chalet": "apartment"}

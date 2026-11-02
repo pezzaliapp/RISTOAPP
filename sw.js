@@ -5,7 +5,7 @@
  *  il refresh degli utenti.
  * ============================================================ */
 
-const CACHE_NAME = 'ristoapp-v5.0.0';
+const CACHE_NAME = 'ristoapp-v5.1.0';
 const ASSETS = [
   './',
   './index.html',
@@ -13,8 +13,10 @@ const ASSETS = [
   './css/styles.css',
   './js/app.js',
   './js/i18n.js',
+  './js/i18n-trust.js',
   './js/data.js',
   './js/store.js',
+  './js/trust.js',
   './js/owner.js',
   './icons/favicon.svg',
   './icons/icon-192.png',

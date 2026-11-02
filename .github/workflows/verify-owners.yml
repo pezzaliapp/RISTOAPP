@@ -1,0 +1,57 @@
+name: Verifica titolari
+
+# Ogni ora: verifica automatica dei titolari (codice sul sito o email
+# del dominio), conteggio segnalazioni, annunci nascosti.
+# Richiede il segreto FIREBASE_SERVICE_ACCOUNT (vedi SETUP-FIREBASE.md):
+# senza segreto il job termina subito senza errori.
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-owners
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Controlla il segreto
+        id: secret
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "Segreto FIREBASE_SERVICE_ACCOUNT non impostato: verifica automatica saltata (vedi SETUP-FIREBASE.md)."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secret.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.secret.outputs.ok == 'true'
+        with:
+          node-version: '20'
+
+      - name: Installa firebase-admin (cartella temporanea, niente package.json nel repo)
+        if: steps.secret.outputs.ok == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/verify-deps"
+          cd "$RUNNER_TEMP/verify-deps"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund --loglevel=error firebase-admin@12
+
+      - name: Verifica
+        if: steps.secret.outputs.ok == 'true'
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          VERIFY_DEPS_DIR: ${{ runner.temp }}/verify-deps
+        run: node scripts/verify-owners.mjs

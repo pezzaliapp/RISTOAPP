@@ -1,0 +1,733 @@
+/* ============================================================
+ *  RISTOAPP - Traduzioni: prenotazione diretta con sconto,
+ *  CIN, verifica titolari, segnalazioni, avvertenze.
+ *  Stesse chiavi in tutte le 6 lingue (it, en, es, de, fr, ja).
+ *  Caricato subito dopo i18n.js (usa I18N.extend).
+ * ============================================================ */
+
+(() => {
+  const X = window.I18N && window.I18N.extend;
+  if (!X) return;
+
+  const MIN = 'https://bdsr.ministeroturismo.gov.it/';
+
+  // ---------------------------------------------------------------- IT
+  X('it', {
+    'terms.link': 'Avvertenze e condizioni d’uso',
+    'terms.title': 'Avvertenze e condizioni d’uso',
+    'terms.body':
+      '<h4>Che cos’è RistoApp</h4>' +
+      '<p>RistoApp è un elenco informativo di ristoranti, strutture ricettive e parcheggi in Italia. I dati provengono dai contributori di OpenStreetMap e dai titolari che registrano la propria attività. RistoApp non è un’agenzia né un intermediario: non è parte dei contratti tra ospiti e strutture e non gestisce prenotazioni né pagamenti.</p>' +
+      '<h4>Accuratezza dei dati</h4>' +
+      '<p>I dati inseriti dai titolari sono sotto la loro responsabilità. Il segno <strong>✓ Verificato</strong> indica soltanto che il titolare ha dimostrato di controllare il sito web o il dominio ufficiale della struttura: non è una garanzia di qualità né di conformità alle norme.</p>' +
+      '<h4>Per gli ospiti</h4>' +
+      '<p>Prima di pagare verifica il CIN sul sito del Ministero del Turismo e controlla che i contatti siano quelli ufficiali della struttura. Non pagare mai con bonifico a sconosciuti, carte regalo, ricariche o criptovalute. Diffida di prezzi troppo bassi e di richieste di anticipo urgenti.</p>' +
+      '<h4>Per i titolari</h4>' +
+      '<p>Puoi pubblicare solo se sei il titolare o il gestore autorizzato della struttura. Per le strutture ricettive la legge italiana richiede un CIN (Codice Identificativo Nazionale) valido. I dati devono essere veritieri e lo sconto per la prenotazione diretta che dichiari va applicato a chi ti contatta da RistoApp. Gli annunci falsi o abusivi vengono rimossi e possono essere segnalati alle autorità.</p>' +
+      '<h4>Segnalazioni e rimozione</h4>' +
+      '<p>Ogni scheda ha il link “Segnala un problema”. Gli annunci con più segnalazioni vengono nascosti automaticamente in attesa di controllo, e RistoApp può rimuovere in qualsiasi momento gli annunci che violano queste condizioni.</p>' +
+      '<h4>Privacy</h4>' +
+      '<p>L’email del titolare serve per l’account e per la verifica e non viene mostrata nelle schede (salvo l’email per le prenotazioni, se il titolare la inserisce). Le segnalazioni sono salvate senza dati personali, a meno che chi segnala non li scriva nel testo.</p>' +
+      '<h4>Contatti</h4>' +
+      '<p>Usa il pulsante “Segnala” nella scheda interessata.</p>' +
+      '<p class="terms-foot">Queste condizioni sono un testo informativo e non sostituiscono una consulenza legale.</p>',
+
+    'disc.btn': 'Prenota qui: paghi il {n}% in meno',
+    'disc.note': 'Sconto riservato a chi prenota direttamente da RistoApp · codice RISTOAPP',
+    'disc.sheetTitle': 'Prenota direttamente',
+    'disc.sheetSub': 'Contatta {name} e cita il codice <strong>RISTOAPP</strong>: lo sconto del {n}% lo applica il titolare. RistoApp non gestisce prenotazioni né pagamenti.',
+    'disc.msgLabel': 'Messaggio pronto',
+    'disc.msg': 'Buongiorno, vi ho trovato su RistoApp e vorrei prenotare con lo sconto del {n}% (codice RISTOAPP). Date di arrivo e partenza: …',
+    'disc.subject': 'Prenotazione da RistoApp – sconto {n}% (codice RISTOAPP)',
+    'disc.call': 'Chiama',
+    'disc.whatsapp': 'WhatsApp',
+    'disc.email': 'Email',
+    'disc.website': 'Sito web',
+    'disc.copy': 'Copia messaggio',
+    'disc.copied': 'Messaggio copiato',
+    'disc.noContacts': 'La struttura non ha indicato contatti diretti.',
+
+    'card.verified': 'Verificato · dati del titolare',
+    'card.unverified': 'Non verificato · dati del titolare',
+    'modal.verifiedNote': '✓ Verificato: il titolare ha dimostrato di controllare il sito ufficiale della struttura. Non è una garanzia di qualità.',
+    'modal.unverifiedNote': 'Non verificato: il titolare non ha ancora dimostrato di controllare il sito ufficiale della struttura.',
+    'modal.whatsapp': 'WhatsApp:',
+    'modal.email': 'Email:',
+
+    'cin.title': 'Codice Identificativo Nazionale',
+    'cin.label': 'CIN:',
+    'cin.verify': 'Verificalo sul sito del Ministero',
+    'cin.tip': 'Sul sito ufficiale usa la funzione “Ricerca CIN” e controlla che nome e indirizzo corrispondano.',
+
+    'safety.title': 'Per la tua sicurezza',
+    'safety.text': 'RistoApp non gestisce prenotazioni né pagamenti. Prima di pagare verifica il CIN sul sito del Ministero e i contatti della struttura. Non pagare mai con bonifico a sconosciuti, carte regalo, ricariche o criptovalute. Diffida di prezzi troppo bassi e richieste di anticipo urgenti.',
+    'safety.report': 'Segnala',
+
+    'rep.link': 'Segnala un problema',
+    'rep.title': 'Segnala un problema',
+    'rep.sub': 'Scheda: <strong>{name}</strong>. Non serve lasciare dati personali.',
+    'rep.reason': 'Motivo',
+    'rep.r.fake': 'Struttura inesistente o falsa',
+    'rep.r.not_owner': 'Non è il vero titolare',
+    'rep.r.payment': 'Richiesta di pagamento sospetta',
+    'rep.r.wrong_data': 'Dati sbagliati',
+    'rep.r.other': 'Altro',
+    'rep.text': 'Dettagli (facoltativo, max 500 caratteri)',
+    'rep.textPh': 'Cosa hai notato?',
+    'rep.send': 'Invia segnalazione',
+    'rep.sending': 'Invio in corso...',
+    'rep.thanks': 'Grazie! La segnalazione è stata inviata e verrà controllata.',
+    'rep.error': 'Invio non riuscito. Controlla la connessione e riprova.',
+    'rep.offline': 'Servizio segnalazioni non raggiungibile. Controlla la connessione o disattiva il blocco pubblicità e riprova.',
+
+    'ed.cin.section': 'Codice Identificativo Nazionale (CIN)',
+    'ed.cin.label': 'CIN (Codice Identificativo Nazionale) *',
+    'ed.cin.hint': 'Obbligatorio per legge in ogni annuncio di struttura ricettiva in Italia. Lo trovi nel PDF scaricato dalla <a href="' + MIN + '" target="_blank" rel="noopener">BDSR del Ministero del Turismo</a>. Es. <code>IT043013C2ABC12345</code>.',
+    'ed.cin.locked': 'Il CIN non si può modificare: per cambiarlo elimina e ricrea l’annuncio.',
+    'ed.cin.required': 'Inserisci il CIN della struttura.',
+    'ed.cin.bad': 'CIN non valido: deve iniziare con IT, seguito da 6 cifre e da 3-10 lettere o numeri (es. IT043013C2ABC12345).',
+    'ed.cin.taken': 'Questo CIN è già registrato da un altro account. Se è il tuo, usa Segnala per contattarci.',
+    'ed.cin.yours': 'Questo CIN è già usato da un altro tuo annuncio.',
+    'ed.direct.title': 'Prenotazione diretta',
+    'ed.direct.hint': 'Chi ti trova su RistoApp prenota direttamente con te: eviti le commissioni dei portali e puoi girare all’ospite parte del risparmio.',
+    'ed.direct.discount': 'Sconto per chi ti contatta da RistoApp (%)',
+    'ed.direct.discountHint': 'Da 0 a 30. Vuoto o 0 = nessuno sconto. Il pulsante con lo sconto compare quando l’annuncio è verificato.',
+    'ed.direct.whatsapp': 'WhatsApp',
+    'ed.direct.email': 'Email pubblica per le prenotazioni',
+    'ed.direct.emailPh': 'prenotazioni@tuastruttura.it',
+    'ed.direct.needContact': 'Per offrire lo sconto indica almeno un contatto: telefono, WhatsApp o email.',
+    'ed.badDiscount': 'Lo sconto deve essere un numero intero da 0 a 30.',
+    'ed.badEmail': 'Email per le prenotazioni non valida.',
+    'ed.badWhatsapp': 'Numero WhatsApp non valido (usa il prefisso internazionale, es. +39 333 1234567).',
+    'ed.badWebsite': 'Indirizzo del sito non valido: deve iniziare con https:// o http://.',
+    'ed.decl.title': 'Dichiarazione',
+    'ed.decl.lodging': 'Dichiaro di essere il titolare o il gestore autorizzato di questa struttura, che i dati sono veritieri e che applicherò lo sconto indicato a chi mi contatta da RistoApp. Le dichiarazioni false possono essere segnalate alle autorità.',
+    'ed.decl.food': 'Dichiaro di essere il titolare o il gestore autorizzato di questo locale e che i dati sono veritieri.',
+    'ed.decl.required': 'Per pubblicare devi spuntare la dichiarazione.',
+    'ed.decl.terms': 'Leggi avvertenze e condizioni d’uso',
+    'ed.needVerifiedEmail': 'Per pubblicare una struttura ricettiva devi prima confermare la tua email: apri il link che ti abbiamo inviato.',
+    'ed.permission': 'Salvataggio non consentito. Controlla di aver confermato l’email e riprova.',
+
+    'dash.email.title': 'Conferma la tua email: ti abbiamo inviato un link',
+    'dash.email.text': 'Apri il link inviato a {email} (controlla anche lo spam). Serve per pubblicare B&B, agriturismi e altre strutture.',
+    'dash.email.resend': 'Reinvia',
+    'dash.email.done': 'Ho confermato',
+    'dash.email.sent': 'Email inviata di nuovo.',
+    'dash.email.still': 'Email non ancora confermata. Apri il link nella posta e riprova.',
+    'dash.email.ok': 'Email confermata, grazie!',
+    'dash.verified': '✓ Verificato',
+    'dash.pending': 'In attesa di verifica',
+    'dash.hidden': 'Nascosto in seguito a segnalazioni',
+    'dash.cin': 'CIN {cin}',
+    'dash.noCin': 'CIN mancante: l’annuncio non è visibile finché non lo aggiungi con “Modifica”.',
+    'dash.verify.title': 'Come ottenere il segno ✓ Verificato',
+    'dash.verify.intro': 'La verifica è automatica: controlliamo ogni ora. Basta uno dei due metodi:',
+    'dash.verify.a': '<strong>Sito web</strong>: pubblica il codice in qualsiasi punto del sito ufficiale (ad es. nel piè di pagina, oppure come <code>&lt;meta name="ristoapp-verification" content="{code}"&gt;</code>) e inserisci l’indirizzo del sito nell’annuncio.',
+    'dash.verify.b': '<strong>Email del dominio</strong>: registrati con un’email dello stesso dominio del sito (es. info@villaaurora.it per villaaurora.it). Le caselle gratuite o generiche (gmail.com, libero.it, hotmail, outlook, yahoo, icloud.com, alice.it, tiscali.it, virgilio.it, aruba.it, pec.it, legalmail.it…) non valgono.',
+    'dash.verify.code': 'Il tuo codice',
+    'dash.verify.copy': 'Copia codice',
+    'dash.verify.copied': 'Codice copiato',
+    'dash.verify.noSite': 'Nell’annuncio manca il sito web: aggiungilo con “Modifica”.',
+    'dash.verify.why': 'Solo gli annunci verificati mostrano il pulsante con lo sconto per la prenotazione diretta.',
+  });
+
+  // ---------------------------------------------------------------- EN
+  X('en', {
+    'terms.link': 'Notices and terms of use',
+    'terms.title': 'Notices and terms of use',
+    'terms.body':
+      '<h4>What RistoApp is</h4>' +
+      '<p>RistoApp is an information directory of restaurants, accommodation and car parks in Italy. The data comes from OpenStreetMap contributors and from owners who register their business. RistoApp is not an agency or an intermediary: it is not a party to any contract between guests and accommodation providers, and it handles no bookings or payments.</p>' +
+      '<h4>Accuracy of the data</h4>' +
+      '<p>Data entered by owners is their own responsibility. The <strong>✓ Verified</strong> badge only means that the owner has proved control of the property’s official website or domain: it is not a guarantee of quality or of legal compliance.</p>' +
+      '<h4>For guests</h4>' +
+      '<p>Before paying, check the CIN on the Italian Ministry of Tourism website and make sure the contact details are the property’s official ones. Never pay by bank transfer to strangers, gift cards, top-ups or cryptocurrency. Be wary of prices that look too low and of urgent requests for a deposit.</p>' +
+      '<h4>For owners</h4>' +
+      '<p>You may only publish if you are the owner or an authorised manager of the property. Italian law requires a valid CIN (National Identification Code) for accommodation. Your data must be truthful, and you must honour the direct-booking discount you declare to guests who contact you through RistoApp. False or abusive listings are removed and may be reported to the authorities.</p>' +
+      '<h4>Reports and removal</h4>' +
+      '<p>Every listing has a “Report a problem” link. Listings with several reports are hidden automatically pending review, and RistoApp may remove listings that break these terms at any time.</p>' +
+      '<h4>Privacy</h4>' +
+      '<p>The owner’s email is used for the account and for verification and is not shown in listings (except the booking email, if the owner adds one). Reports are stored without personal data, unless the person reporting writes it in the text.</p>' +
+      '<h4>Contact</h4>' +
+      '<p>Use the “Report” button on the listing concerned.</p>' +
+      '<p class="terms-foot">These terms are for information only and are not a substitute for legal advice.</p>',
+
+    'disc.btn': 'Book here: pay {n}% less',
+    'disc.note': 'Discount for guests who book directly via RistoApp · code RISTOAPP',
+    'disc.sheetTitle': 'Book directly',
+    'disc.sheetSub': 'Contact {name} and quote the code <strong>RISTOAPP</strong>: the owner applies the {n}% discount. RistoApp handles no bookings or payments.',
+    'disc.msgLabel': 'Ready-made message',
+    'disc.msg': 'Hello, I found you on RistoApp and would like to book with the {n}% discount (code RISTOAPP). Arrival and departure dates: …',
+    'disc.subject': 'Booking via RistoApp – {n}% discount (code RISTOAPP)',
+    'disc.call': 'Call',
+    'disc.whatsapp': 'WhatsApp',
+    'disc.email': 'Email',
+    'disc.website': 'Website',
+    'disc.copy': 'Copy message',
+    'disc.copied': 'Message copied',
+    'disc.noContacts': 'The property has not provided any direct contact details.',
+
+    'card.verified': 'Verified · owner’s data',
+    'card.unverified': 'Not verified · owner’s data',
+    'modal.verifiedNote': '✓ Verified: the owner has proved control of the property’s official website. This is not a guarantee of quality.',
+    'modal.unverifiedNote': 'Not verified: the owner has not yet proved control of the property’s official website.',
+    'modal.whatsapp': 'WhatsApp:',
+    'modal.email': 'Email:',
+
+    'cin.title': 'National Identification Code',
+    'cin.label': 'CIN:',
+    'cin.verify': 'Check it on the Ministry website',
+    'cin.tip': 'On the official site, use the “Ricerca CIN” (CIN search) function and check that the name and address match.',
+
+    'safety.title': 'For your safety',
+    'safety.text': 'RistoApp handles no bookings or payments. Before paying, check the CIN on the Ministry website and the property’s contact details. Never pay by bank transfer to strangers, gift cards, top-ups or cryptocurrency. Be wary of prices that look too low and urgent requests for a deposit.',
+    'safety.report': 'Report',
+
+    'rep.link': 'Report a problem',
+    'rep.title': 'Report a problem',
+    'rep.sub': 'Listing: <strong>{name}</strong>. No personal details needed.',
+    'rep.reason': 'Reason',
+    'rep.r.fake': 'Property does not exist or is fake',
+    'rep.r.not_owner': 'Not the real owner',
+    'rep.r.payment': 'Suspicious payment request',
+    'rep.r.wrong_data': 'Wrong information',
+    'rep.r.other': 'Other',
+    'rep.text': 'Details (optional, max 500 characters)',
+    'rep.textPh': 'What did you notice?',
+    'rep.send': 'Send report',
+    'rep.sending': 'Sending...',
+    'rep.thanks': 'Thank you! Your report has been sent and will be reviewed.',
+    'rep.error': 'Could not send. Check your connection and try again.',
+    'rep.offline': 'The report service cannot be reached. Check your connection or turn off your ad blocker and try again.',
+
+    'ed.cin.section': 'National Identification Code (CIN)',
+    'ed.cin.label': 'CIN (National Identification Code) *',
+    'ed.cin.hint': 'Required by Italian law in every accommodation listing. You will find it in the PDF downloaded from the <a href="' + MIN + '" target="_blank" rel="noopener">Ministry of Tourism BDSR</a>. E.g. <code>IT043013C2ABC12345</code>.',
+    'ed.cin.locked': 'The CIN cannot be changed: to change it, delete the listing and create it again.',
+    'ed.cin.required': 'Enter the property’s CIN.',
+    'ed.cin.bad': 'Invalid CIN: it must start with IT, followed by 6 digits and 3–10 letters or numbers (e.g. IT043013C2ABC12345).',
+    'ed.cin.taken': 'This CIN is already registered by another account. If it is yours, use Report to contact us.',
+    'ed.cin.yours': 'This CIN is already used by another of your listings.',
+    'ed.direct.title': 'Direct booking',
+    'ed.direct.hint': 'Guests who find you on RistoApp book directly with you: you avoid portal commissions and can pass part of the saving on to them.',
+    'ed.direct.discount': 'Discount for guests who contact you via RistoApp (%)',
+    'ed.direct.discountHint': 'From 0 to 30. Empty or 0 = no discount. The discount button appears once the listing is verified.',
+    'ed.direct.whatsapp': 'WhatsApp',
+    'ed.direct.email': 'Public email for bookings',
+    'ed.direct.emailPh': 'bookings@yourproperty.com',
+    'ed.direct.needContact': 'To offer a discount, give at least one contact: phone, WhatsApp or email.',
+    'ed.badDiscount': 'The discount must be a whole number from 0 to 30.',
+    'ed.badEmail': 'Invalid booking email.',
+    'ed.badWhatsapp': 'Invalid WhatsApp number (include the country code, e.g. +39 333 1234567).',
+    'ed.badWebsite': 'Invalid website address: it must start with https:// or http://.',
+    'ed.decl.title': 'Declaration',
+    'ed.decl.lodging': 'I declare that I am the owner or authorised manager of this property, that the information is truthful and that I will apply the stated discount to guests who contact me via RistoApp. False declarations may be reported to the authorities.',
+    'ed.decl.food': 'I declare that I am the owner or authorised manager of this business and that the information is truthful.',
+    'ed.decl.required': 'To publish, please tick the declaration.',
+    'ed.decl.terms': 'Read the notices and terms of use',
+    'ed.needVerifiedEmail': 'To publish accommodation you first need to confirm your email: open the link we sent you.',
+    'ed.permission': 'Saving is not allowed. Make sure you have confirmed your email and try again.',
+
+    'dash.email.title': 'Confirm your email: we have sent you a link',
+    'dash.email.text': 'Open the link sent to {email} (check your spam folder too). You need it to publish B&Bs, farm stays and other accommodation.',
+    'dash.email.resend': 'Resend',
+    'dash.email.done': 'I’ve confirmed',
+    'dash.email.sent': 'Email sent again.',
+    'dash.email.still': 'Email not confirmed yet. Open the link in your inbox and try again.',
+    'dash.email.ok': 'Email confirmed, thank you!',
+    'dash.verified': '✓ Verified',
+    'dash.pending': 'Awaiting verification',
+    'dash.hidden': 'Hidden after reports',
+    'dash.cin': 'CIN {cin}',
+    'dash.noCin': 'CIN missing: the listing is not visible until you add it with “Edit”.',
+    'dash.verify.title': 'How to get the ✓ Verified badge',
+    'dash.verify.intro': 'Verification is automatic: we check every hour. Either method is enough:',
+    'dash.verify.a': '<strong>Website</strong>: put the code anywhere on the official website (e.g. in the footer, or as <code>&lt;meta name="ristoapp-verification" content="{code}"&gt;</code>) and enter the website address in your listing.',
+    'dash.verify.b': '<strong>Domain email</strong>: sign up with an email on the same domain as the website (e.g. info@villaaurora.it for villaaurora.it). Free or generic mailboxes (gmail.com, libero.it, hotmail, outlook, yahoo, icloud.com, alice.it, tiscali.it, virgilio.it, aruba.it, pec.it, legalmail.it…) don’t count.',
+    'dash.verify.code': 'Your code',
+    'dash.verify.copy': 'Copy code',
+    'dash.verify.copied': 'Code copied',
+    'dash.verify.noSite': 'Your listing has no website: add one with “Edit”.',
+    'dash.verify.why': 'Only verified listings show the direct-booking discount button.',
+  });
+
+  // ---------------------------------------------------------------- ES
+  X('es', {
+    'terms.link': 'Avisos y condiciones de uso',
+    'terms.title': 'Avisos y condiciones de uso',
+    'terms.body':
+      '<h4>Qué es RistoApp</h4>' +
+      '<p>RistoApp es un directorio informativo de restaurantes, alojamientos y aparcamientos en Italia. Los datos proceden de los colaboradores de OpenStreetMap y de los propietarios que registran su negocio. RistoApp no es una agencia ni un intermediario: no es parte de los contratos entre huéspedes y alojamientos y no gestiona reservas ni pagos.</p>' +
+      '<h4>Exactitud de los datos</h4>' +
+      '<p>Los datos introducidos por los propietarios son responsabilidad suya. La marca <strong>✓ Verificado</strong> solo indica que el propietario ha demostrado controlar la web o el dominio oficial del alojamiento: no garantiza la calidad ni el cumplimiento de la normativa.</p>' +
+      '<h4>Para los huéspedes</h4>' +
+      '<p>Antes de pagar, comprueba el CIN en la web del Ministerio de Turismo italiano y que los contactos sean los oficiales del alojamiento. No pagues nunca con transferencias a desconocidos, tarjetas regalo, recargas o criptomonedas. Desconfía de los precios demasiado bajos y de las peticiones urgentes de anticipo.</p>' +
+      '<h4>Para los propietarios</h4>' +
+      '<p>Solo puedes publicar si eres el titular o el gestor autorizado del alojamiento. La ley italiana exige un CIN (Código Identificativo Nacional) válido para los alojamientos. Los datos deben ser veraces y debes aplicar el descuento por reserva directa que declares a quien te contacte desde RistoApp. Los anuncios falsos o abusivos se eliminan y pueden denunciarse a las autoridades.</p>' +
+      '<h4>Avisos y retirada</h4>' +
+      '<p>Cada ficha tiene el enlace «Avisar de un problema». Los anuncios con varios avisos se ocultan automáticamente a la espera de revisión, y RistoApp puede retirar en cualquier momento los anuncios que incumplan estas condiciones.</p>' +
+      '<h4>Privacidad</h4>' +
+      '<p>El email del propietario se usa para la cuenta y la verificación y no se muestra en las fichas (salvo el email para reservas, si el propietario lo añade). Los avisos se guardan sin datos personales, salvo que quien avisa los escriba en el texto.</p>' +
+      '<h4>Contacto</h4>' +
+      '<p>Usa el botón «Avisar» en la ficha correspondiente.</p>' +
+      '<p class="terms-foot">Estas condiciones son un texto informativo y no sustituyen el asesoramiento jurídico.</p>',
+
+    'disc.btn': 'Reserva aquí: pagas un {n}% menos',
+    'disc.note': 'Descuento para quien reserva directamente desde RistoApp · código RISTOAPP',
+    'disc.sheetTitle': 'Reserva directamente',
+    'disc.sheetSub': 'Contacta con {name} y menciona el código <strong>RISTOAPP</strong>: el propietario aplica el descuento del {n}%. RistoApp no gestiona reservas ni pagos.',
+    'disc.msgLabel': 'Mensaje listo',
+    'disc.msg': 'Buenos días, os he encontrado en RistoApp y me gustaría reservar con el descuento del {n}% (código RISTOAPP). Fechas de llegada y salida: …',
+    'disc.subject': 'Reserva desde RistoApp – descuento del {n}% (código RISTOAPP)',
+    'disc.call': 'Llamar',
+    'disc.whatsapp': 'WhatsApp',
+    'disc.email': 'Email',
+    'disc.website': 'Sitio web',
+    'disc.copy': 'Copiar mensaje',
+    'disc.copied': 'Mensaje copiado',
+    'disc.noContacts': 'El alojamiento no ha indicado contactos directos.',
+
+    'card.verified': 'Verificado · datos del propietario',
+    'card.unverified': 'No verificado · datos del propietario',
+    'modal.verifiedNote': '✓ Verificado: el propietario ha demostrado controlar la web oficial del alojamiento. No es una garantía de calidad.',
+    'modal.unverifiedNote': 'No verificado: el propietario aún no ha demostrado controlar la web oficial del alojamiento.',
+    'modal.whatsapp': 'WhatsApp:',
+    'modal.email': 'Email:',
+
+    'cin.title': 'Código Identificativo Nacional',
+    'cin.label': 'CIN:',
+    'cin.verify': 'Compruébalo en la web del Ministerio',
+    'cin.tip': 'En la web oficial usa la función «Ricerca CIN» (búsqueda de CIN) y comprueba que el nombre y la dirección coinciden.',
+
+    'safety.title': 'Por tu seguridad',
+    'safety.text': 'RistoApp no gestiona reservas ni pagos. Antes de pagar, comprueba el CIN en la web del Ministerio y los contactos del alojamiento. No pagues nunca con transferencias a desconocidos, tarjetas regalo, recargas o criptomonedas. Desconfía de los precios demasiado bajos y de las peticiones urgentes de anticipo.',
+    'safety.report': 'Avisar',
+
+    'rep.link': 'Avisar de un problema',
+    'rep.title': 'Avisar de un problema',
+    'rep.sub': 'Ficha: <strong>{name}</strong>. No hace falta dejar datos personales.',
+    'rep.reason': 'Motivo',
+    'rep.r.fake': 'Alojamiento inexistente o falso',
+    'rep.r.not_owner': 'No es el verdadero propietario',
+    'rep.r.payment': 'Petición de pago sospechosa',
+    'rep.r.wrong_data': 'Datos incorrectos',
+    'rep.r.other': 'Otro',
+    'rep.text': 'Detalles (opcional, máx. 500 caracteres)',
+    'rep.textPh': '¿Qué has notado?',
+    'rep.send': 'Enviar aviso',
+    'rep.sending': 'Enviando...',
+    'rep.thanks': '¡Gracias! El aviso se ha enviado y se revisará.',
+    'rep.error': 'No se ha podido enviar. Comprueba la conexión e inténtalo de nuevo.',
+    'rep.offline': 'El servicio de avisos no está disponible. Comprueba la conexión o desactiva el bloqueador de anuncios e inténtalo de nuevo.',
+
+    'ed.cin.section': 'Código Identificativo Nacional (CIN)',
+    'ed.cin.label': 'CIN (Código Identificativo Nacional) *',
+    'ed.cin.hint': 'Obligatorio por ley en todo anuncio de alojamiento en Italia. Lo encontrarás en el PDF descargado de la <a href="' + MIN + '" target="_blank" rel="noopener">BDSR del Ministerio de Turismo</a>. Ej. <code>IT043013C2ABC12345</code>.',
+    'ed.cin.locked': 'El CIN no se puede cambiar: para cambiarlo, elimina el anuncio y vuelve a crearlo.',
+    'ed.cin.required': 'Introduce el CIN del alojamiento.',
+    'ed.cin.bad': 'CIN no válido: debe empezar por IT, seguido de 6 cifras y de 3 a 10 letras o números (ej. IT043013C2ABC12345).',
+    'ed.cin.taken': 'Este CIN ya está registrado por otra cuenta. Si es tuyo, usa Avisar para contactarnos.',
+    'ed.cin.yours': 'Este CIN ya lo usa otro de tus anuncios.',
+    'ed.direct.title': 'Reserva directa',
+    'ed.direct.hint': 'Quien te encuentra en RistoApp reserva directamente contigo: evitas las comisiones de los portales y puedes trasladar parte del ahorro al huésped.',
+    'ed.direct.discount': 'Descuento para quien te contacta desde RistoApp (%)',
+    'ed.direct.discountHint': 'De 0 a 30. Vacío o 0 = sin descuento. El botón con el descuento aparece cuando el anuncio está verificado.',
+    'ed.direct.whatsapp': 'WhatsApp',
+    'ed.direct.email': 'Email público para reservas',
+    'ed.direct.emailPh': 'reservas@tualojamiento.com',
+    'ed.direct.needContact': 'Para ofrecer el descuento indica al menos un contacto: teléfono, WhatsApp o email.',
+    'ed.badDiscount': 'El descuento debe ser un número entero de 0 a 30.',
+    'ed.badEmail': 'Email para reservas no válido.',
+    'ed.badWhatsapp': 'Número de WhatsApp no válido (usa el prefijo internacional, ej. +39 333 1234567).',
+    'ed.badWebsite': 'Dirección web no válida: debe empezar por https:// o http://.',
+    'ed.decl.title': 'Declaración',
+    'ed.decl.lodging': 'Declaro que soy el titular o el gestor autorizado de este alojamiento, que los datos son veraces y que aplicaré el descuento indicado a quien me contacte desde RistoApp. Las declaraciones falsas pueden denunciarse a las autoridades.',
+    'ed.decl.food': 'Declaro que soy el titular o el gestor autorizado de este local y que los datos son veraces.',
+    'ed.decl.required': 'Para publicar debes marcar la declaración.',
+    'ed.decl.terms': 'Lee los avisos y condiciones de uso',
+    'ed.needVerifiedEmail': 'Para publicar un alojamiento primero debes confirmar tu email: abre el enlace que te hemos enviado.',
+    'ed.permission': 'No se permite guardar. Comprueba que has confirmado tu email e inténtalo de nuevo.',
+
+    'dash.email.title': 'Confirma tu email: te hemos enviado un enlace',
+    'dash.email.text': 'Abre el enlace enviado a {email} (revisa también el spam). Lo necesitas para publicar B&B, agroturismos y otros alojamientos.',
+    'dash.email.resend': 'Reenviar',
+    'dash.email.done': 'Ya lo he confirmado',
+    'dash.email.sent': 'Email enviado de nuevo.',
+    'dash.email.still': 'El email aún no está confirmado. Abre el enlace en tu correo e inténtalo de nuevo.',
+    'dash.email.ok': '¡Email confirmado, gracias!',
+    'dash.verified': '✓ Verificado',
+    'dash.pending': 'Pendiente de verificación',
+    'dash.hidden': 'Oculto por avisos',
+    'dash.cin': 'CIN {cin}',
+    'dash.noCin': 'Falta el CIN: el anuncio no es visible hasta que lo añadas con «Editar».',
+    'dash.verify.title': 'Cómo obtener la marca ✓ Verificado',
+    'dash.verify.intro': 'La verificación es automática: comprobamos cada hora. Basta con uno de los dos métodos:',
+    'dash.verify.a': '<strong>Sitio web</strong>: publica el código en cualquier parte de la web oficial (p. ej. en el pie de página, o como <code>&lt;meta name="ristoapp-verification" content="{code}"&gt;</code>) e indica la dirección de la web en el anuncio.',
+    'dash.verify.b': '<strong>Email del dominio</strong>: regístrate con un email del mismo dominio que la web (p. ej. info@villaaurora.it para villaaurora.it). Los buzones gratuitos o genéricos (gmail.com, libero.it, hotmail, outlook, yahoo, icloud.com, alice.it, tiscali.it, virgilio.it, aruba.it, pec.it, legalmail.it…) no sirven.',
+    'dash.verify.code': 'Tu código',
+    'dash.verify.copy': 'Copiar código',
+    'dash.verify.copied': 'Código copiado',
+    'dash.verify.noSite': 'Al anuncio le falta la web: añádela con «Editar».',
+    'dash.verify.why': 'Solo los anuncios verificados muestran el botón con el descuento por reserva directa.',
+  });
+
+  // ---------------------------------------------------------------- DE
+  X('de', {
+    'terms.link': 'Hinweise und Nutzungsbedingungen',
+    'terms.title': 'Hinweise und Nutzungsbedingungen',
+    'terms.body':
+      '<h4>Was RistoApp ist</h4>' +
+      '<p>RistoApp ist ein Informationsverzeichnis für Restaurants, Unterkünfte und Parkplätze in Italien. Die Daten stammen von OpenStreetMap-Mitwirkenden und von Inhabern, die ihren Betrieb eintragen. RistoApp ist weder Agentur noch Vermittler: RistoApp ist nicht Partei von Verträgen zwischen Gästen und Unterkünften und wickelt weder Buchungen noch Zahlungen ab.</p>' +
+      '<h4>Richtigkeit der Daten</h4>' +
+      '<p>Für die von Inhabern eingetragenen Daten sind die Inhaber verantwortlich. Das Zeichen <strong>✓ Verifiziert</strong> bedeutet nur, dass der Inhaber nachgewiesen hat, die offizielle Website oder Domain der Unterkunft zu verwalten – es ist keine Garantie für Qualität oder Rechtskonformität.</p>' +
+      '<h4>Für Gäste</h4>' +
+      '<p>Prüfen Sie vor der Zahlung den CIN auf der Website des italienischen Tourismusministeriums und ob die Kontaktdaten die offiziellen der Unterkunft sind. Zahlen Sie nie per Überweisung an Unbekannte, mit Geschenkkarten, Prepaid-Aufladungen oder Kryptowährungen. Seien Sie misstrauisch bei auffällig niedrigen Preisen und dringenden Anzahlungsforderungen.</p>' +
+      '<h4>Für Inhaber</h4>' +
+      '<p>Veröffentlichen dürfen nur Inhaber oder bevollmächtigte Betreiber der Unterkunft. Das italienische Recht verlangt für Unterkünfte einen gültigen CIN (nationaler Identifikationscode). Die Angaben müssen wahr sein, und der angegebene Direktbuchungsrabatt muss Gästen gewährt werden, die über RistoApp Kontakt aufnehmen. Falsche oder missbräuchliche Einträge werden entfernt und können den Behörden gemeldet werden.</p>' +
+      '<h4>Meldungen und Entfernung</h4>' +
+      '<p>Jeder Eintrag hat den Link „Problem melden“. Einträge mit mehreren Meldungen werden bis zur Prüfung automatisch ausgeblendet, und RistoApp kann Einträge, die gegen diese Bedingungen verstoßen, jederzeit entfernen.</p>' +
+      '<h4>Datenschutz</h4>' +
+      '<p>Die E-Mail-Adresse des Inhabers dient dem Konto und der Verifizierung und wird in den Einträgen nicht angezeigt (außer der Buchungs-E-Mail, falls der Inhaber sie angibt). Meldungen werden ohne personenbezogene Daten gespeichert, sofern die meldende Person sie nicht selbst in den Text schreibt.</p>' +
+      '<h4>Kontakt</h4>' +
+      '<p>Nutzen Sie die Schaltfläche „Melden“ im betreffenden Eintrag.</p>' +
+      '<p class="terms-foot">Diese Bedingungen dienen nur der Information und ersetzen keine Rechtsberatung.</p>',
+
+    'disc.btn': 'Hier buchen: {n} % günstiger',
+    'disc.note': 'Rabatt für Direktbuchungen über RistoApp · Code RISTOAPP',
+    'disc.sheetTitle': 'Direkt buchen',
+    'disc.sheetSub': 'Kontaktieren Sie {name} und nennen Sie den Code <strong>RISTOAPP</strong>: Den Rabatt von {n} % gewährt der Inhaber. RistoApp wickelt weder Buchungen noch Zahlungen ab.',
+    'disc.msgLabel': 'Fertige Nachricht',
+    'disc.msg': 'Guten Tag, ich habe Sie über RistoApp gefunden und möchte mit dem Rabatt von {n} % buchen (Code RISTOAPP). An- und Abreisedatum: …',
+    'disc.subject': 'Buchung über RistoApp – {n} % Rabatt (Code RISTOAPP)',
+    'disc.call': 'Anrufen',
+    'disc.whatsapp': 'WhatsApp',
+    'disc.email': 'E-Mail',
+    'disc.website': 'Website',
+    'disc.copy': 'Nachricht kopieren',
+    'disc.copied': 'Nachricht kopiert',
+    'disc.noContacts': 'Die Unterkunft hat keine direkten Kontaktdaten angegeben.',
+
+    'card.verified': 'Verifiziert · Angaben des Inhabers',
+    'card.unverified': 'Nicht verifiziert · Angaben des Inhabers',
+    'modal.verifiedNote': '✓ Verifiziert: Der Inhaber hat nachgewiesen, die offizielle Website der Unterkunft zu verwalten. Das ist keine Qualitätsgarantie.',
+    'modal.unverifiedNote': 'Nicht verifiziert: Der Inhaber hat noch nicht nachgewiesen, die offizielle Website der Unterkunft zu verwalten.',
+    'modal.whatsapp': 'WhatsApp:',
+    'modal.email': 'E-Mail:',
+
+    'cin.title': 'Nationaler Identifikationscode',
+    'cin.label': 'CIN:',
+    'cin.verify': 'Auf der Website des Ministeriums prüfen',
+    'cin.tip': 'Nutzen Sie auf der offiziellen Website die Funktion „Ricerca CIN“ (CIN-Suche) und prüfen Sie, ob Name und Adresse übereinstimmen.',
+
+    'safety.title': 'Zu Ihrer Sicherheit',
+    'safety.text': 'RistoApp wickelt weder Buchungen noch Zahlungen ab. Prüfen Sie vor der Zahlung den CIN auf der Website des Ministeriums und die Kontaktdaten der Unterkunft. Zahlen Sie nie per Überweisung an Unbekannte, mit Geschenkkarten, Prepaid-Aufladungen oder Kryptowährungen. Seien Sie misstrauisch bei auffällig niedrigen Preisen und dringenden Anzahlungsforderungen.',
+    'safety.report': 'Melden',
+
+    'rep.link': 'Problem melden',
+    'rep.title': 'Problem melden',
+    'rep.sub': 'Eintrag: <strong>{name}</strong>. Persönliche Daten sind nicht nötig.',
+    'rep.reason': 'Grund',
+    'rep.r.fake': 'Unterkunft existiert nicht oder ist gefälscht',
+    'rep.r.not_owner': 'Nicht der echte Inhaber',
+    'rep.r.payment': 'Verdächtige Zahlungsaufforderung',
+    'rep.r.wrong_data': 'Falsche Angaben',
+    'rep.r.other': 'Sonstiges',
+    'rep.text': 'Details (optional, max. 500 Zeichen)',
+    'rep.textPh': 'Was ist Ihnen aufgefallen?',
+    'rep.send': 'Meldung senden',
+    'rep.sending': 'Wird gesendet...',
+    'rep.thanks': 'Danke! Ihre Meldung wurde gesendet und wird geprüft.',
+    'rep.error': 'Senden fehlgeschlagen. Prüfen Sie die Verbindung und versuchen Sie es erneut.',
+    'rep.offline': 'Der Meldedienst ist nicht erreichbar. Prüfen Sie die Verbindung oder deaktivieren Sie den Werbeblocker und versuchen Sie es erneut.',
+
+    'ed.cin.section': 'Nationaler Identifikationscode (CIN)',
+    'ed.cin.label': 'CIN (Nationaler Identifikationscode) *',
+    'ed.cin.hint': 'In Italien für jede Unterkunftsanzeige gesetzlich vorgeschrieben. Sie finden ihn im PDF aus der <a href="' + MIN + '" target="_blank" rel="noopener">BDSR des Tourismusministeriums</a>. Z. B. <code>IT043013C2ABC12345</code>.',
+    'ed.cin.locked': 'Der CIN kann nicht geändert werden: Löschen Sie dazu den Eintrag und legen Sie ihn neu an.',
+    'ed.cin.required': 'Geben Sie den CIN der Unterkunft ein.',
+    'ed.cin.bad': 'Ungültiger CIN: Er beginnt mit IT, gefolgt von 6 Ziffern und 3–10 Buchstaben oder Ziffern (z. B. IT043013C2ABC12345).',
+    'ed.cin.taken': 'Dieser CIN ist bereits von einem anderen Konto registriert. Wenn es Ihrer ist, kontaktieren Sie uns über „Melden“.',
+    'ed.cin.yours': 'Dieser CIN wird bereits von einem anderen Ihrer Einträge verwendet.',
+    'ed.direct.title': 'Direktbuchung',
+    'ed.direct.hint': 'Wer Sie über RistoApp findet, bucht direkt bei Ihnen: Sie sparen die Provisionen der Portale und können einen Teil davon an den Gast weitergeben.',
+    'ed.direct.discount': 'Rabatt für Gäste, die Sie über RistoApp kontaktieren (%)',
+    'ed.direct.discountHint': 'Von 0 bis 30. Leer oder 0 = kein Rabatt. Die Rabatt-Schaltfläche erscheint, sobald der Eintrag verifiziert ist.',
+    'ed.direct.whatsapp': 'WhatsApp',
+    'ed.direct.email': 'Öffentliche E-Mail für Buchungen',
+    'ed.direct.emailPh': 'buchung@ihreunterkunft.de',
+    'ed.direct.needContact': 'Für einen Rabatt geben Sie mindestens einen Kontakt an: Telefon, WhatsApp oder E-Mail.',
+    'ed.badDiscount': 'Der Rabatt muss eine ganze Zahl von 0 bis 30 sein.',
+    'ed.badEmail': 'Ungültige Buchungs-E-Mail.',
+    'ed.badWhatsapp': 'Ungültige WhatsApp-Nummer (mit Landesvorwahl, z. B. +39 333 1234567).',
+    'ed.badWebsite': 'Ungültige Website-Adresse: Sie muss mit https:// oder http:// beginnen.',
+    'ed.decl.title': 'Erklärung',
+    'ed.decl.lodging': 'Ich erkläre, dass ich Inhaber oder bevollmächtigter Betreiber dieser Unterkunft bin, dass die Angaben wahr sind und dass ich den angegebenen Rabatt Gästen gewähre, die mich über RistoApp kontaktieren. Falsche Angaben können den Behörden gemeldet werden.',
+    'ed.decl.food': 'Ich erkläre, dass ich Inhaber oder bevollmächtigter Betreiber dieses Lokals bin und dass die Angaben wahr sind.',
+    'ed.decl.required': 'Zum Veröffentlichen bestätigen Sie bitte die Erklärung.',
+    'ed.decl.terms': 'Hinweise und Nutzungsbedingungen lesen',
+    'ed.needVerifiedEmail': 'Um eine Unterkunft zu veröffentlichen, bestätigen Sie zuerst Ihre E-Mail: Öffnen Sie den Link, den wir Ihnen geschickt haben.',
+    'ed.permission': 'Speichern nicht erlaubt. Prüfen Sie, ob Sie Ihre E-Mail bestätigt haben, und versuchen Sie es erneut.',
+
+    'dash.email.title': 'Bestätigen Sie Ihre E-Mail: Wir haben Ihnen einen Link geschickt',
+    'dash.email.text': 'Öffnen Sie den an {email} gesendeten Link (auch im Spam nachsehen). Er ist nötig, um B&Bs, Ferienhöfe und andere Unterkünfte zu veröffentlichen.',
+    'dash.email.resend': 'Erneut senden',
+    'dash.email.done': 'Ich habe bestätigt',
+    'dash.email.sent': 'E-Mail erneut gesendet.',
+    'dash.email.still': 'E-Mail noch nicht bestätigt. Öffnen Sie den Link in Ihrem Postfach und versuchen Sie es erneut.',
+    'dash.email.ok': 'E-Mail bestätigt, danke!',
+    'dash.verified': '✓ Verifiziert',
+    'dash.pending': 'Verifizierung ausstehend',
+    'dash.hidden': 'Nach Meldungen ausgeblendet',
+    'dash.cin': 'CIN {cin}',
+    'dash.noCin': 'CIN fehlt: Der Eintrag ist erst sichtbar, wenn Sie ihn über „Bearbeiten“ ergänzen.',
+    'dash.verify.title': 'So erhalten Sie das ✓ Verifiziert',
+    'dash.verify.intro': 'Die Verifizierung läuft automatisch: Wir prüfen stündlich. Eine der beiden Methoden genügt:',
+    'dash.verify.a': '<strong>Website</strong>: Platzieren Sie den Code an beliebiger Stelle auf der offiziellen Website (z. B. in der Fußzeile oder als <code>&lt;meta name="ristoapp-verification" content="{code}"&gt;</code>) und tragen Sie die Website-Adresse im Eintrag ein.',
+    'dash.verify.b': '<strong>E-Mail der Domain</strong>: Registrieren Sie sich mit einer E-Mail derselben Domain wie die Website (z. B. info@villaaurora.it für villaaurora.it). Kostenlose oder allgemeine Postfächer (gmail.com, libero.it, hotmail, outlook, yahoo, icloud.com, alice.it, tiscali.it, virgilio.it, aruba.it, pec.it, legalmail.it…) zählen nicht.',
+    'dash.verify.code': 'Ihr Code',
+    'dash.verify.copy': 'Code kopieren',
+    'dash.verify.copied': 'Code kopiert',
+    'dash.verify.noSite': 'Im Eintrag fehlt die Website: Fügen Sie sie über „Bearbeiten“ hinzu.',
+    'dash.verify.why': 'Nur verifizierte Einträge zeigen die Schaltfläche mit dem Direktbuchungsrabatt.',
+  });
+
+  // ---------------------------------------------------------------- FR
+  X('fr', {
+    'terms.link': 'Avertissements et conditions d’utilisation',
+    'terms.title': 'Avertissements et conditions d’utilisation',
+    'terms.body':
+      '<h4>Ce qu’est RistoApp</h4>' +
+      '<p>RistoApp est un annuaire d’information sur les restaurants, hébergements et parkings en Italie. Les données proviennent des contributeurs d’OpenStreetMap et des propriétaires qui inscrivent leur établissement. RistoApp n’est ni une agence ni un intermédiaire : il n’est partie à aucun contrat entre clients et hébergements et ne gère ni réservations ni paiements.</p>' +
+      '<h4>Exactitude des données</h4>' +
+      '<p>Les données saisies par les propriétaires relèvent de leur responsabilité. Le signe <strong>✓ Vérifié</strong> indique seulement que le propriétaire a prouvé qu’il gère le site ou le domaine officiel de l’établissement : ce n’est une garantie ni de qualité ni de conformité légale.</p>' +
+      '<h4>Pour les voyageurs</h4>' +
+      '<p>Avant de payer, vérifiez le CIN sur le site du ministère italien du Tourisme et assurez-vous que les coordonnées sont bien celles de l’établissement. Ne payez jamais par virement à des inconnus, par cartes cadeaux, recharges ou cryptomonnaies. Méfiez-vous des prix trop bas et des demandes d’acompte urgentes.</p>' +
+      '<h4>Pour les propriétaires</h4>' +
+      '<p>Vous ne pouvez publier que si vous êtes le titulaire ou le gestionnaire autorisé de l’établissement. La loi italienne exige un CIN (code d’identification national) valide pour les hébergements. Les données doivent être véridiques et la remise pour réservation directe que vous déclarez doit être appliquée à qui vous contacte depuis RistoApp. Les annonces fausses ou abusives sont supprimées et peuvent être signalées aux autorités.</p>' +
+      '<h4>Signalements et suppression</h4>' +
+      '<p>Chaque fiche comporte le lien « Signaler un problème ». Les annonces signalées plusieurs fois sont masquées automatiquement en attente de contrôle, et RistoApp peut supprimer à tout moment les annonces qui enfreignent ces conditions.</p>' +
+      '<h4>Confidentialité</h4>' +
+      '<p>L’e-mail du propriétaire sert au compte et à la vérification et n’est pas affiché dans les fiches (sauf l’e-mail de réservation, s’il l’ajoute). Les signalements sont enregistrés sans données personnelles, sauf si la personne qui signale les écrit dans le texte.</p>' +
+      '<h4>Contact</h4>' +
+      '<p>Utilisez le bouton « Signaler » sur la fiche concernée.</p>' +
+      '<p class="terms-foot">Ces conditions sont un texte d’information et ne remplacent pas un conseil juridique.</p>',
+
+    'disc.btn': 'Réservez ici : payez {n} % de moins',
+    'disc.note': 'Remise réservée à qui réserve directement depuis RistoApp · code RISTOAPP',
+    'disc.sheetTitle': 'Réserver en direct',
+    'disc.sheetSub': 'Contactez {name} et indiquez le code <strong>RISTOAPP</strong> : la remise de {n} % est appliquée par le propriétaire. RistoApp ne gère ni réservations ni paiements.',
+    'disc.msgLabel': 'Message prêt à envoyer',
+    'disc.msg': 'Bonjour, je vous ai trouvés sur RistoApp et je souhaiterais réserver avec la remise de {n} % (code RISTOAPP). Dates d’arrivée et de départ : …',
+    'disc.subject': 'Réservation via RistoApp – remise de {n} % (code RISTOAPP)',
+    'disc.call': 'Appeler',
+    'disc.whatsapp': 'WhatsApp',
+    'disc.email': 'E-mail',
+    'disc.website': 'Site web',
+    'disc.copy': 'Copier le message',
+    'disc.copied': 'Message copié',
+    'disc.noContacts': 'L’établissement n’a indiqué aucun contact direct.',
+
+    'card.verified': 'Vérifié · données du propriétaire',
+    'card.unverified': 'Non vérifié · données du propriétaire',
+    'modal.verifiedNote': '✓ Vérifié : le propriétaire a prouvé qu’il gère le site officiel de l’établissement. Ce n’est pas une garantie de qualité.',
+    'modal.unverifiedNote': 'Non vérifié : le propriétaire n’a pas encore prouvé qu’il gère le site officiel de l’établissement.',
+    'modal.whatsapp': 'WhatsApp :',
+    'modal.email': 'E-mail :',
+
+    'cin.title': 'Code d’identification national',
+    'cin.label': 'CIN :',
+    'cin.verify': 'Le vérifier sur le site du ministère',
+    'cin.tip': 'Sur le site officiel, utilisez la fonction « Ricerca CIN » (recherche CIN) et vérifiez que le nom et l’adresse correspondent.',
+
+    'safety.title': 'Pour votre sécurité',
+    'safety.text': 'RistoApp ne gère ni réservations ni paiements. Avant de payer, vérifiez le CIN sur le site du ministère et les coordonnées de l’établissement. Ne payez jamais par virement à des inconnus, par cartes cadeaux, recharges ou cryptomonnaies. Méfiez-vous des prix trop bas et des demandes d’acompte urgentes.',
+    'safety.report': 'Signaler',
+
+    'rep.link': 'Signaler un problème',
+    'rep.title': 'Signaler un problème',
+    'rep.sub': 'Fiche : <strong>{name}</strong>. Inutile de laisser des données personnelles.',
+    'rep.reason': 'Motif',
+    'rep.r.fake': 'Établissement inexistant ou faux',
+    'rep.r.not_owner': 'Ce n’est pas le vrai propriétaire',
+    'rep.r.payment': 'Demande de paiement suspecte',
+    'rep.r.wrong_data': 'Informations erronées',
+    'rep.r.other': 'Autre',
+    'rep.text': 'Détails (facultatif, 500 caractères max.)',
+    'rep.textPh': 'Qu’avez-vous remarqué ?',
+    'rep.send': 'Envoyer le signalement',
+    'rep.sending': 'Envoi en cours...',
+    'rep.thanks': 'Merci ! Votre signalement a été envoyé et sera examiné.',
+    'rep.error': 'Échec de l’envoi. Vérifiez la connexion et réessayez.',
+    'rep.offline': 'Le service de signalement est injoignable. Vérifiez la connexion ou désactivez le bloqueur de publicité, puis réessayez.',
+
+    'ed.cin.section': 'Code d’identification national (CIN)',
+    'ed.cin.label': 'CIN (code d’identification national) *',
+    'ed.cin.hint': 'Obligatoire par la loi dans toute annonce d’hébergement en Italie. Vous le trouverez dans le PDF téléchargé depuis la <a href="' + MIN + '" target="_blank" rel="noopener">BDSR du ministère du Tourisme</a>. Ex. <code>IT043013C2ABC12345</code>.',
+    'ed.cin.locked': 'Le CIN ne peut pas être modifié : pour le changer, supprimez l’annonce et recréez-la.',
+    'ed.cin.required': 'Saisissez le CIN de l’établissement.',
+    'ed.cin.bad': 'CIN non valide : il doit commencer par IT, suivi de 6 chiffres et de 3 à 10 lettres ou chiffres (ex. IT043013C2ABC12345).',
+    'ed.cin.taken': 'Ce CIN est déjà enregistré par un autre compte. S’il est à vous, utilisez Signaler pour nous contacter.',
+    'ed.cin.yours': 'Ce CIN est déjà utilisé par une autre de vos annonces.',
+    'ed.direct.title': 'Réservation directe',
+    'ed.direct.hint': 'Qui vous trouve sur RistoApp réserve directement chez vous : vous évitez les commissions des portails et pouvez reverser une partie de l’économie au client.',
+    'ed.direct.discount': 'Remise pour qui vous contacte depuis RistoApp (%)',
+    'ed.direct.discountHint': 'De 0 à 30. Vide ou 0 = aucune remise. Le bouton avec la remise apparaît une fois l’annonce vérifiée.',
+    'ed.direct.whatsapp': 'WhatsApp',
+    'ed.direct.email': 'E-mail public pour les réservations',
+    'ed.direct.emailPh': 'reservation@votreetablissement.fr',
+    'ed.direct.needContact': 'Pour offrir une remise, indiquez au moins un contact : téléphone, WhatsApp ou e-mail.',
+    'ed.badDiscount': 'La remise doit être un nombre entier de 0 à 30.',
+    'ed.badEmail': 'E-mail de réservation non valide.',
+    'ed.badWhatsapp': 'Numéro WhatsApp non valide (avec l’indicatif international, ex. +39 333 1234567).',
+    'ed.badWebsite': 'Adresse du site non valide : elle doit commencer par https:// ou http://.',
+    'ed.decl.title': 'Déclaration',
+    'ed.decl.lodging': 'Je déclare être le titulaire ou le gestionnaire autorisé de cet établissement, que les données sont véridiques et que j’appliquerai la remise indiquée à qui me contacte depuis RistoApp. Les fausses déclarations peuvent être signalées aux autorités.',
+    'ed.decl.food': 'Je déclare être le titulaire ou le gestionnaire autorisé de cet établissement et que les données sont véridiques.',
+    'ed.decl.required': 'Pour publier, vous devez cocher la déclaration.',
+    'ed.decl.terms': 'Lire les avertissements et conditions d’utilisation',
+    'ed.needVerifiedEmail': 'Pour publier un hébergement, confirmez d’abord votre e-mail : ouvrez le lien que nous vous avons envoyé.',
+    'ed.permission': 'Enregistrement non autorisé. Vérifiez que vous avez confirmé votre e-mail et réessayez.',
+
+    'dash.email.title': 'Confirmez votre e-mail : nous vous avons envoyé un lien',
+    'dash.email.text': 'Ouvrez le lien envoyé à {email} (vérifiez aussi les spams). Il est nécessaire pour publier des B&B, agritourismes et autres hébergements.',
+    'dash.email.resend': 'Renvoyer',
+    'dash.email.done': 'J’ai confirmé',
+    'dash.email.sent': 'E-mail renvoyé.',
+    'dash.email.still': 'E-mail pas encore confirmé. Ouvrez le lien dans votre messagerie et réessayez.',
+    'dash.email.ok': 'E-mail confirmé, merci !',
+    'dash.verified': '✓ Vérifié',
+    'dash.pending': 'En attente de vérification',
+    'dash.hidden': 'Masqué suite à des signalements',
+    'dash.cin': 'CIN {cin}',
+    'dash.noCin': 'CIN manquant : l’annonce n’est pas visible tant que vous ne l’ajoutez pas avec « Modifier ».',
+    'dash.verify.title': 'Comment obtenir le signe ✓ Vérifié',
+    'dash.verify.intro': 'La vérification est automatique : nous contrôlons toutes les heures. Une des deux méthodes suffit :',
+    'dash.verify.a': '<strong>Site web</strong> : publiez le code n’importe où sur le site officiel (par ex. dans le pied de page, ou sous la forme <code>&lt;meta name="ristoapp-verification" content="{code}"&gt;</code>) et indiquez l’adresse du site dans l’annonce.',
+    'dash.verify.b': '<strong>E-mail du domaine</strong> : inscrivez-vous avec un e-mail du même domaine que le site (ex. info@villaaurora.it pour villaaurora.it). Les messageries gratuites ou génériques (gmail.com, libero.it, hotmail, outlook, yahoo, icloud.com, alice.it, tiscali.it, virgilio.it, aruba.it, pec.it, legalmail.it…) ne comptent pas.',
+    'dash.verify.code': 'Votre code',
+    'dash.verify.copy': 'Copier le code',
+    'dash.verify.copied': 'Code copié',
+    'dash.verify.noSite': 'Il manque le site web dans l’annonce : ajoutez-le avec « Modifier ».',
+    'dash.verify.why': 'Seules les annonces vérifiées affichent le bouton de remise pour la réservation directe.',
+  });
+
+  // ---------------------------------------------------------------- JA
+  X('ja', {
+    'terms.link': 'ご注意と利用条件',
+    'terms.title': 'ご注意と利用条件',
+    'terms.body':
+      '<h4>RistoApp について</h4>' +
+      '<p>RistoApp は、イタリアのレストラン・宿泊施設・駐車場の情報を掲載するディレクトリです。データは OpenStreetMap の協力者と、施設を登録したオーナーから提供されています。RistoApp は旅行代理店や仲介業者ではなく、お客様と宿泊施設との契約の当事者にもなりません。予約や支払いも一切扱いません。</p>' +
+      '<h4>情報の正確さ</h4>' +
+      '<p>オーナーが入力した情報の責任はオーナーにあります。<strong>「✓ 認証済み」</strong>は、オーナーが施設の公式ウェブサイトまたはドメインを管理していることを証明したという意味にすぎず、品質や法令遵守を保証するものではありません。</p>' +
+      '<h4>ご利用のお客様へ</h4>' +
+      '<p>お支払いの前に、イタリア観光省のサイトで CIN を確認し、連絡先が施設の公式のものであることを確かめてください。見知らぬ相手への銀行振込、ギフトカード、プリペイドのチャージ、暗号資産での支払いは絶対にしないでください。安すぎる料金や、急かすような前払いの要求にもご注意ください。</p>' +
+      '<h4>オーナーの皆さまへ</h4>' +
+      '<p>掲載できるのは、施設のオーナーまたは正式に認められた管理者のみです。イタリアの法律により、宿泊施設には有効な CIN（全国識別コード）が必要です。情報は正確でなければならず、申告した直接予約の割引は RistoApp 経由で連絡してきたお客様に必ず適用してください。虚偽または不正な掲載は削除され、当局に通報される場合があります。</p>' +
+      '<h4>報告と削除</h4>' +
+      '<p>すべての掲載ページに「問題を報告」リンクがあります。複数の報告を受けた掲載は確認が済むまで自動的に非表示になり、RistoApp はこの条件に反する掲載をいつでも削除できます。</p>' +
+      '<h4>プライバシー</h4>' +
+      '<p>オーナーのメールアドレスはアカウントと認証のためだけに使用し、掲載ページには表示しません（オーナーが予約用メールアドレスを入力した場合を除く）。報告は個人情報なしで保存されます。ただし、報告者が本文に記入した場合はその限りではありません。</p>' +
+      '<h4>お問い合わせ</h4>' +
+      '<p>該当する掲載ページの「報告」ボタンをご利用ください。</p>' +
+      '<p class="terms-foot">この条件は情報提供を目的としたものであり、法的助言に代わるものではありません。</p>',
+
+    'disc.btn': 'ここで予約：{n}%お得',
+    'disc.note': 'RistoApp から直接予約した方限定の割引 · コード RISTOAPP',
+    'disc.sheetTitle': '直接予約する',
+    'disc.sheetSub': '{name} に連絡し、コード <strong>RISTOAPP</strong> をお伝えください。{n}%の割引はオーナーが適用します。RistoApp は予約や支払いを扱いません。',
+    'disc.msgLabel': '送信用メッセージ',
+    'disc.msg': 'こんにちは。RistoApp で拝見しました。{n}%割引（コード RISTOAPP）で予約をお願いしたいです。到着日と出発日：…',
+    'disc.subject': 'RistoApp からの予約 – {n}%割引（コード RISTOAPP）',
+    'disc.call': '電話する',
+    'disc.whatsapp': 'WhatsApp',
+    'disc.email': 'メール',
+    'disc.website': 'ウェブサイト',
+    'disc.copy': 'メッセージをコピー',
+    'disc.copied': 'メッセージをコピーしました',
+    'disc.noContacts': 'この施設は直接の連絡先を登録していません。',
+
+    'card.verified': '認証済み · オーナー提供の情報',
+    'card.unverified': '未認証 · オーナー提供の情報',
+    'modal.verifiedNote': '✓ 認証済み：オーナーが施設の公式ウェブサイトを管理していることを証明しました。品質を保証するものではありません。',
+    'modal.unverifiedNote': '未認証：オーナーはまだ施設の公式ウェブサイトを管理していることを証明していません。',
+    'modal.whatsapp': 'WhatsApp：',
+    'modal.email': 'メール：',
+
+    'cin.title': '全国識別コード（CIN）',
+    'cin.label': 'CIN：',
+    'cin.verify': '観光省のサイトで確認する',
+    'cin.tip': '公式サイトの「Ricerca CIN」（CIN 検索）機能で、名称と住所が一致しているか確認してください。',
+
+    'safety.title': '安全のために',
+    'safety.text': 'RistoApp は予約や支払いを扱いません。お支払いの前に、観光省のサイトで CIN と施設の連絡先を確認してください。見知らぬ相手への銀行振込、ギフトカード、プリペイドのチャージ、暗号資産での支払いは絶対にしないでください。安すぎる料金や、急かすような前払いの要求にもご注意ください。',
+    'safety.report': '報告',
+
+    'rep.link': '問題を報告',
+    'rep.title': '問題を報告',
+    'rep.sub': '対象：<strong>{name}</strong>。個人情報の入力は不要です。',
+    'rep.reason': '理由',
+    'rep.r.fake': '施設が存在しない、または偽物',
+    'rep.r.not_owner': '本当のオーナーではない',
+    'rep.r.payment': '不審な支払いの要求',
+    'rep.r.wrong_data': '情報が間違っている',
+    'rep.r.other': 'その他',
+    'rep.text': '詳細（任意、500文字まで）',
+    'rep.textPh': 'お気づきの点をご記入ください',
+    'rep.send': '報告を送信',
+    'rep.sending': '送信中...',
+    'rep.thanks': 'ありがとうございます。報告を送信しました。内容を確認いたします。',
+    'rep.error': '送信できませんでした。接続を確認して、もう一度お試しください。',
+    'rep.offline': '報告サービスに接続できません。接続を確認するか、広告ブロッカーをオフにして、もう一度お試しください。',
+
+    'ed.cin.section': '全国識別コード（CIN）',
+    'ed.cin.label': 'CIN（全国識別コード）*',
+    'ed.cin.hint': 'イタリアでは、すべての宿泊施設の掲載に法律で義務付けられています。<a href="' + MIN + '" target="_blank" rel="noopener">観光省の BDSR</a> からダウンロードした PDF に記載されています。例：<code>IT043013C2ABC12345</code>',
+    'ed.cin.locked': 'CIN は変更できません。変更するには、掲載を削除してから作成し直してください。',
+    'ed.cin.required': '施設の CIN を入力してください。',
+    'ed.cin.bad': 'CIN が正しくありません。IT で始まり、6桁の数字と3〜10文字の英数字が続く形式です（例：IT043013C2ABC12345）。',
+    'ed.cin.taken': 'この CIN は別のアカウントで登録済みです。ご自身のものであれば「報告」からご連絡ください。',
+    'ed.cin.yours': 'この CIN は、あなたの別の掲載ですでに使われています。',
+    'ed.direct.title': '直接予約',
+    'ed.direct.hint': 'RistoApp であなたを見つけたお客様は、あなたに直接予約します。予約サイトの手数料がかからないぶん、その一部をお客様に還元できます。',
+    'ed.direct.discount': 'RistoApp 経由のお客様への割引（%）',
+    'ed.direct.discountHint': '0〜30。空欄または0の場合は割引なし。割引ボタンは掲載が認証されると表示されます。',
+    'ed.direct.whatsapp': 'WhatsApp',
+    'ed.direct.email': '予約用の公開メールアドレス',
+    'ed.direct.emailPh': 'booking@yourhotel.jp',
+    'ed.direct.needContact': '割引を提供するには、電話・WhatsApp・メールのいずれか1つ以上を入力してください。',
+    'ed.badDiscount': '割引は0〜30の整数で入力してください。',
+    'ed.badEmail': '予約用メールアドレスが正しくありません。',
+    'ed.badWhatsapp': 'WhatsApp の番号が正しくありません（国番号から入力してください。例：+39 333 1234567）。',
+    'ed.badWebsite': 'ウェブサイトのアドレスが正しくありません。https:// または http:// で始めてください。',
+    'ed.decl.title': '申告',
+    'ed.decl.lodging': '私はこの施設のオーナーまたは正式に認められた管理者であり、情報は正確であること、また RistoApp 経由で連絡してきたお客様に表示した割引を適用することを申告します。虚偽の申告は当局に通報される場合があります。',
+    'ed.decl.food': '私はこの店舗のオーナーまたは正式に認められた管理者であり、情報は正確であることを申告します。',
+    'ed.decl.required': '公開するには、申告にチェックを入れてください。',
+    'ed.decl.terms': 'ご注意と利用条件を読む',
+    'ed.needVerifiedEmail': '宿泊施設を公開するには、先にメールアドレスの確認が必要です。お送りしたリンクを開いてください。',
+    'ed.permission': '保存が許可されていません。メールアドレスの確認が済んでいるかご確認のうえ、もう一度お試しください。',
+
+    'dash.email.title': 'メールアドレスを確認してください（リンクをお送りしました）',
+    'dash.email.text': '{email} に送信したリンクを開いてください（迷惑メールフォルダもご確認ください）。B&B やアグリツーリズモなどの宿泊施設を公開するために必要です。',
+    'dash.email.resend': '再送信',
+    'dash.email.done': '確認しました',
+    'dash.email.sent': 'メールを再送信しました。',
+    'dash.email.still': 'まだメールアドレスが確認されていません。メールのリンクを開いてから、もう一度お試しください。',
+    'dash.email.ok': 'メールアドレスが確認されました。ありがとうございます。',
+    'dash.verified': '✓ 認証済み',
+    'dash.pending': '認証待ち',
+    'dash.hidden': '報告により非表示',
+    'dash.cin': 'CIN {cin}',
+    'dash.noCin': 'CIN が未入力です。「編集」から追加するまで掲載は表示されません。',
+    'dash.verify.title': '「✓ 認証済み」を取得する方法',
+    'dash.verify.intro': '認証は自動で、1時間ごとに確認します。次のどちらか1つで十分です。',
+    'dash.verify.a': '<strong>ウェブサイト</strong>：公式サイトのどこかにコードを掲載し（例：フッター、または <code>&lt;meta name="ristoapp-verification" content="{code}"&gt;</code>）、掲載情報にサイトのアドレスを入力してください。',
+    'dash.verify.b': '<strong>ドメインのメール</strong>：サイトと同じドメインのメールアドレスで登録してください（例：villaaurora.it なら info@villaaurora.it）。無料・汎用のメール（gmail.com、libero.it、hotmail、outlook、yahoo、icloud.com、alice.it、tiscali.it、virgilio.it、aruba.it、pec.it、legalmail.it など）は対象外です。',
+    'dash.verify.code': 'あなたのコード',
+    'dash.verify.copy': 'コードをコピー',
+    'dash.verify.copied': 'コードをコピーしました',
+    'dash.verify.noSite': '掲載情報にウェブサイトがありません。「編集」から追加してください。',
+    'dash.verify.why': '直接予約の割引ボタンは、認証済みの掲載にのみ表示されます。',
+  });
+})();
