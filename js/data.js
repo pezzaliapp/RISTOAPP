@@ -94,8 +94,8 @@ const RISTOAPP_CONFIG = {
   // NB: overpass.kumi.systems e overpass.private.coffee sono lo STESSO
   // server (rinominato), quindi ne teniamo uno solo.
   overpassEndpoints: [
+    // Solo server nell'UE (vedi informativa privacy): il server extra-UE e' stato rimosso in 5.3.
     'https://overpass-api.de/api/interpreter',
-    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
     'https://overpass.private.coffee/api/interpreter',
   ],
   overpassTimeoutMs: 20000,         // timeout per singolo server
@@ -105,6 +105,29 @@ const RISTOAPP_CONFIG = {
 
   defaultRadius: 3000,
   maxRadius:    10000,
+
+  version: '5.3.0',
+
+  // ------------------------------------------------------------------
+  //  CHI GESTISCE RISTOAPP (unico punto da compilare)
+  //  Mostrati in "Chi gestisce RistoApp", "Privacy e cookie" e
+  //  "Condizioni d'uso". Finche' un valore e' vuoto o resta un
+  //  segnaposto {{...}}, l'app mostra "[da completare]" (tradotto).
+  // ------------------------------------------------------------------
+  operator: {
+    name:  'Alessandro Pezzali',   // es. 'Mario Rossi'
+    city:  '',                    // non mostrato (non obbligatorio)   // es. 'Civitanova Marche (MC)'
+    email: 'pezzaliapp@gmail.com',   // es. 'info@esempio.it'
+  },
+  // Data dell'ultimo aggiornamento dei testi legali (mese anno, per lingua)
+  legalUpdated: { year: 2026, month: 11 },
+
+  // Amministratore (moderazione). La vera protezione sono le Firestore
+  // Rules (isAdmin): questo valore serve solo a mostrare il pannello.
+  adminEmail: 'pezzalialessandro@gmail.com',
+
+  // Area geografica ammessa per gli annunci (= Firestore Rules)
+  italyBbox: { minLat: 35.2, maxLat: 47.2, minLng: 6.5, maxLng: 18.7 },
 };
 
 window.RISTOAPP_CONFIG = RISTOAPP_CONFIG;

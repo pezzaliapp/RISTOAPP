@@ -10,7 +10,7 @@
   --c-bg-2:       #EFE3D1;
   --c-ink:        #1A1410;
   --c-ink-soft:   #3A2E26;
-  --c-muted:      #7A6A5C;
+  --c-muted:      #6B5B4E;   /* >= 4.8:1 su tutti gli sfondi (WCAG AA) */
   --c-line:       #D9CBB6;
   --c-paper:      #FBF5EA;
 
@@ -1389,7 +1389,8 @@ html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
   .sheet-backdrop { align-items: flex-end; padding: 0; }
   .sheet { border-radius: var(--r-xl) var(--r-xl) 0 0; max-height: 92vh; }
 }
-.disc-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.disc-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+.disc-opts > * { min-width: 0; }
 .disc-opt {
   display: flex; flex-direction: column; gap: 2px;
   padding: 12px 14px;
@@ -1404,7 +1405,7 @@ html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
 .disc-opt small { font-weight: 400; font-size: 12px; color: var(--c-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .disc-opt:hover { border-color: var(--c-olive); }
 .disc-opt--wa { border-color: #25D366; }
-@media (max-width: 400px) { .disc-opts { grid-template-columns: 1fr; } }
+@media (max-width: 400px) { .disc-opts { grid-template-columns: minmax(0, 1fr); } }
 .disc-msg { margin-bottom: 10px; }
 .form-field textarea {
   padding: 10px 12px;
@@ -1534,3 +1535,103 @@ html[lang="ja"] .hero-title { word-break: keep-all; overflow-wrap: anywhere; }
 .danger-zone summary { cursor: pointer; color: var(--c-accent); font-weight: 600; font-size: 14px; }
 .danger-zone p { font-size: 13px; color: var(--c-muted); }
 .danger-btn { background: #8E2B20 !important; }
+
+/* ============================================================
+ *  v5.3 - Accessibilita', testi lunghi, piè di pagina legale,
+ *  avviso di aggiornamento, moderazione, contestazioni
+ * ============================================================ */
+
+/* Focus visibile da tastiera su tutto cio' che e' interattivo */
+:focus-visible {
+  outline: 3px solid var(--c-accent-2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.chip:focus-visible, .btn-primary:focus-visible, .btn-outline:focus-visible,
+.btn-ghost:focus-visible, .portal-btn:focus-visible, .disc-btn:focus-visible,
+.modal-close:focus-visible, .link-btn:focus-visible {
+  outline: 3px solid var(--c-accent-2);
+  outline-offset: 2px;
+}
+input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--c-accent-2); outline-offset: 1px; }
+
+/* Nomi, indirizzi, URL o email molto lunghi non escono dalle schede.
+   Solo sugli elementi di testo (non sui contenitori: overflow-wrap si
+   eredita e spezzerebbe a meta' le parole dei pulsanti). */
+.card-title, .card-meta, .card-type, .card-tag, .modal-head h3, .modal-body p, .modal-body a,
+.modal-body .card-type, .dish-name, .sheet-head h3, .sheet-sub, .sheet-note, .disc-main, .disc-note,
+.my-item-title, .my-item-meta, .verify-code code, .tag-table td, .legal-text p, .legal-text li,
+.adm-item p, .adm-head strong, .hidden-note, .cin-code, .cin-summary code, .results-head h2,
+.report-ref code, .notice-box p, .notice-box strong, .claim-list li {
+  overflow-wrap: anywhere;
+}
+.card, .modal, .sheet, .adm-item, .hidden-box { min-width: 0; }
+.modal-body a { word-break: break-word; }
+
+/* Piè di pagina: link legali e attribuzioni */
+.footer-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-bottom: 10px; }
+.footer-links .footer-link { text-decoration: underline; text-underline-offset: 3px; }
+.app-footer a { color: var(--c-ink-soft); }
+.app-footer .footer-small { font-size: 11px; max-width: 760px; margin: 6px auto; }
+
+/* Attribuzione OSM vicino ai risultati */
+.results-attr { font-size: 11.5px; color: var(--c-muted); margin: -6px 0 12px; }
+.results-attr a { color: var(--c-ink-soft); }
+
+/* Testi legali (fogli) */
+.legal-text h5 { font-size: 14px; margin: 12px 0 4px; color: var(--c-ink); }
+.legal-text ul, .legal-text ol { margin: 0 0 10px; padding-left: 20px; font-size: 14px; line-height: 1.55; color: var(--c-ink-soft); }
+.legal-text li { margin-bottom: 4px; }
+.legal-text .legal-date { font-size: 12.5px; color: var(--c-muted); }
+.legal-todo { background: #FFF4D6; color: #7A5A12; padding: 0 4px; border-radius: 4px; font-weight: 600; }
+.legal-nav { font-size: 13px; margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--c-line); line-height: 1.8; }
+.legal-nav a { color: var(--c-ink-soft); }
+.sheet-note { font-size: 12.5px; color: var(--c-muted); line-height: 1.45; margin: 0 0 12px; }
+.report-ref { font-size: 14px; margin: 8px 0; }
+.report-ref code { background: var(--c-bg-2); padding: 2px 8px; border-radius: 6px; font-size: 13px; user-select: all; }
+
+/* Avviso "Aggiornamento disponibile" */
+.update-toast {
+  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  background: var(--c-ink); color: var(--c-paper);
+  padding: 10px 12px 10px 18px; border-radius: 999px;
+  font-size: 13.5px; z-index: 260; box-shadow: var(--shadow-lift);
+  max-width: calc(100vw - 24px);
+}
+.update-toast[hidden] { display: none; }
+.update-toast button {
+  background: var(--c-paper); color: var(--c-ink); font-weight: 700;
+  padding: 6px 14px; border-radius: 999px;
+}
+
+/* Registrazione: consenso */
+.reg-accept { margin: 4px 0 6px; font-size: 13.5px; }
+.reg-accept a { color: var(--c-accent-2); }
+
+/* Annuncio nascosto: motivo, motivazione, contestazione */
+.hidden-box { margin: 10px 0 0; padding: 12px 14px; background: #F7E6E2; border-radius: var(--r-md); }
+.hidden-note { font-size: 13.5px; margin: 0 0 8px; color: var(--c-ink-soft); }
+.appeal-form textarea, .adm-note textarea { width: 100%; font: inherit; padding: 8px 10px; border: 1px solid var(--c-line); border-radius: var(--r-sm); background: #fff; }
+.appeal-form .chip { margin-top: 6px; }
+
+/* Rivendicazione CIN */
+.claim-zone { margin-top: 18px; padding: 12px 14px; border: 1px solid var(--c-line); border-radius: var(--r-md); background: var(--c-paper); }
+.claim-zone summary { cursor: pointer; font-weight: 600; }
+.claim-zone p { font-size: 13.5px; color: var(--c-ink-soft); }
+.claim-list { font-size: 13px; padding-left: 18px; }
+.cin-claim-line { margin: 6px 0 0; }
+
+/* Moderazione (solo amministratore) */
+.admin-box { margin: 0 0 18px; padding: 14px 16px; border: 2px solid var(--c-accent-2); border-radius: var(--r-md); background: #fff; }
+.admin-box h3 { margin: 0 0 4px; font-family: var(--f-display); }
+.adm-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.adm-list { list-style: none; margin: 0; padding: 0; }
+.adm-item { border-top: 1px solid var(--c-line); padding: 12px 0; }
+.adm-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.adm-head small { color: var(--c-muted); width: 100%; }
+.adm-item p { margin: 6px 0; font-size: 14px; }
+.adm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+
+/* Pulsante sconto: nome lungo su piu' righe */
+.disc-btn .disc-main { white-space: normal; }

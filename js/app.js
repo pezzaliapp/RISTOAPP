@@ -83,49 +83,93 @@
     return placesCache[letter];
   }
 
-  async function findPlaceLocal(cityName) {
-    const q = normalize(cityName.split(',')[0]);
+  // Cerca una localita' nei dati salvati. Con "near" preferisce la piu' vicina
+  // (es. "Fontespina, Civitanova Marche": il quartiere vicino a quella citta').
+  async function findPlaceLocal(name, near) {
+    const q = normalize(name);
     if (!q) return null;
     const c = q[0];
     const letter = c >= 'a' && c <= 'z' ? c : '_';
     const list = await loadPlacesBucket(letter);
     if (!list || !list.length) return null;
-    // [nome, lat, lng, rango(1=citta'...5=frazione), provincia?]
-    const byRank = (a, b) => a[3] - b[3];
-    const exact = list.filter(p => normalize(p[0]) === q).sort(byRank);
-    const prefix = exact.length ? [] : list.filter(p => normalize(p[0]).startsWith(q)).sort(byRank);
+    // [nome, lat, lng, rango(1=citta'...5=frazione/quartiere), provincia?]
+    let exact = list.filter(p => normalize(p[0]) === q);
+    let prefix = exact.length ? [] : list.filter(p => normalize(p[0]).startsWith(q));
+    if (near) {
+      const d = p => haversine(near, { lat: p[1], lng: p[2] });
+      const close = arr => arr.filter(p => d(p) <= 25).sort((a, b) => d(a) - d(b));
+      exact = close(exact); prefix = close(prefix);
+    } else {
+      const byRank = (a, b) => a[3] - b[3];
+      exact.sort(byRank); prefix.sort(byRank);
+    }
     const best = exact[0] || prefix[0];
     return best ? { lat: best[1], lng: best[2], name: best[0] } : null;
   }
 
-  async function resolveCity(cityName) {
-    const norm = normalize(cityName);
-    const preset = CFG.cities.find(c => normalize(c.name) === norm);
-    if (preset) return { lat: preset.lat, lng: preset.lng, name: preset.name };
+  // Vie, piazze, corsi...: si cercano su Nominatim (OSM)
+  const STREET_RE = /^(via|viale|v\.le|piazza|p\.za|piazzale|largo|corso|c\.so|vicolo|lungomare|lungotevere|lungarno|contrada|c\.da|strada|borgo|salita|traversa|calle|rione|localita|loc\.)(?=\s|$)/;
 
-    const local = await findPlaceLocal(cityName);
-    if (local) return local;
-
-    // Nominatim (ultima risorsa)
+  async function nominatimSearch(text) {
     try {
-      const url = `${CFG.nominatimEndpoint}?q=${encodeURIComponent(cityName + ', Italia')}&format=json&limit=1&countrycodes=it`;
+      const url = `${CFG.nominatimEndpoint}?q=${encodeURIComponent(text + ', Italia')}&format=json&limit=1&countrycodes=it`;
       const resp = await fetchWithTimeout(url, { headers: { 'Accept': 'application/json' } }, 10000);
       if (resp.ok) {
         const arr = await resp.json();
         if (arr.length) return {
           lat: parseFloat(arr[0].lat),
           lng: parseFloat(arr[0].lon),
-          name: arr[0].display_name.split(',')[0] || cityName,
+          name: text.split(',')[0].trim() || arr[0].display_name.split(',')[0],
         };
       }
     } catch {}
-    throw i18nError('err.cityNotFound', { city: cityName });
+    return null;
+  }
+
+  async function resolveTown(cityName) {
+    const norm = normalize(cityName);
+    const preset = CFG.cities.find(c => normalize(c.name) === norm);
+    if (preset) return { lat: preset.lat, lng: preset.lng, name: preset.name };
+    return findPlaceLocal(cityName);
+  }
+
+  // Accetta: "Città", "Quartiere/zona", "Quartiere, Città", "Via ..., Città"
+  async function resolveCity(input) {
+    const parts = input.split(',').map(x => x.trim()).filter(Boolean);
+    const first = parts[0] || '';
+    const rest = parts.slice(1).join(', ');
+    const isStreet = STREET_RE.test(normalize(first));
+
+    if (!isStreet) {
+      if (rest) {
+        // "Zona, Città": prima la città, poi la zona vicina a quella città
+        const town = await resolveTown(rest);
+        if (town) {
+          const zone = await findPlaceLocal(first, town);
+          if (zone) return { ...zone, name: `${zone.name}, ${town.name}` };
+          const nz = await nominatimSearch(input);
+          if (nz && haversine(town, nz) <= 25) return { ...nz, name: `${first}, ${town.name}` };
+          return town;
+        }
+      } else {
+        const local = await resolveTown(first);
+        if (local) return local;
+      }
+    }
+    // Vie e tutto il resto: Nominatim (ultima risorsa).
+    // "Via Roma" senza città: si cerca nella città della ricerca precedente.
+    const prevCity = (state.cityName || '').split(',').pop().trim();
+    const text = (isStreet && !rest && prevCity) ? `${first}, ${prevCity}` : input;
+    const nm = await nominatimSearch(text);
+    if (nm) return nm;
+    throw i18nError('err.cityNotFound', { city: input });
   }
 
   // -------------- OVERPASS --------------------------------
   function buildOverpassQuery(lat, lng, radius) {
     const amenities = 'restaurant|fast_food|pub|bar|cafe|biergarten|food_court|ice_cream';
-    const around = `(around:${radius},${lat.toFixed(5)},${lng.toFixed(5)})`;
+    // coordinate arrotondate a 3 decimali (~100 m): privacy (vedi informativa)
+    const around = `(around:${radius},${lat.toFixed(3)},${lng.toFixed(3)})`;
     return `[out:json][timeout:20];
 (nwr["amenity"~"^(${amenities})$"]["name"]${around};nwr["tourism"~"^(guest_house|hotel|motel|hostel|apartment|chalet)$"]["name"]${around};);
 out center tags qt;`;
@@ -224,11 +268,21 @@ out center tags qt;`;
   const EMPTY_FIELDS = ['cuisine','address','phone','website','facebook','instagram',
     'opening_hours','takeaway','delivery','outdoor_seating','wheelchair',
     'vegetarian','vegan','gluten_free'];
+  // Dati dei quadranti: tipi controllati (un valore strano non deve
+  // rompere il rendering) - il contenuto resta comunque sempre escapato
   function expandItem(r) {
-    const out = { ...r };
-    EMPTY_FIELDS.forEach(k => { if (out[k] == null) out[k] = ''; });
-    if (!out.payments) out.payments = [];
-    out.rawTags = { name: out.name, amenity: out.amenity, ...(out.rawTags || {}) };
+    if (!r || typeof r !== 'object') return null;
+    const lat = Number(r.lat), lng = Number(r.lng);
+    if (typeof r.name !== 'string' || !r.name || !isFinite(lat) || !isFinite(lng)) return null;
+    const out = { ...r, lat, lng, id: String(r.id || '') };
+    EMPTY_FIELDS.forEach(k => {
+      const v = out[k];
+      out[k] = typeof v === 'string' ? v : (typeof v === 'number' && isFinite(v) ? String(v) : '');
+    });
+    out.payments = Array.isArray(out.payments) ? out.payments.filter(x => typeof x === 'string') : [];
+    const tags = out.rawTags && typeof out.rawTags === 'object' && !Array.isArray(out.rawTags) ? out.rawTags : {};
+    out.rawTags = { name: out.name, amenity: out.amenity, ...tags };
+    if (typeof out.cin !== 'string') out.cin = '';
     return out;
   }
 
@@ -265,8 +319,8 @@ out center tags qt;`;
     const data = await loadTilesAround(origin, radius);
     if (!data) return null;
     return data.items
-      .filter(r => haversine(origin, r) * 1000 <= radius)
-      .map(expandItem);
+      .map(expandItem)
+      .filter(r => r && haversine(origin, r) * 1000 <= radius);
   }
 
   // ---- Parcheggi pubblici vicino a un punto (per i B&B) ---------
@@ -286,10 +340,11 @@ out center tags qt;`;
     const keys = idx && idx.bbox ? tileKeysAround(idx, pos, 1500) : null;
     if (keys) {
       const tiles = await Promise.all(keys.map(loadParkingTile));
-      list = tiles.flat().map(p => ({ lat: p[0], lng: p[1], name: p[2], fee: p[3], type: p[4], capacity: p[5] }));
+      list = tiles.flat().filter(Array.isArray).map(p => ({ lat: Number(p[0]), lng: Number(p[1]), name: String(p[2] ?? ''), fee: String(p[3] ?? ''), type: String(p[4] ?? ''), capacity: String(p[5] ?? '') }))
+        .filter(p => isFinite(p.lat) && isFinite(p.lng));
     } else {
       // Dati del sito non disponibili: OpenStreetMap in diretta
-      const q = `[out:json][timeout:15];nwr["amenity"="parking"]["access"!~"^(private|no|customers|permit|residents)$"](around:1500,${pos.lat.toFixed(5)},${pos.lng.toFixed(5)});out center tags qt;`;
+      const q = `[out:json][timeout:15];nwr["amenity"="parking"]["access"!~"^(private|no|customers|permit|residents)$"](around:1500,${pos.lat.toFixed(3)},${pos.lng.toFixed(3)});out center tags qt;`;
       const json = await fetchOverpass(q);
       list = json.elements.map(el => ({
         lat: el.lat ?? el.center?.lat, lng: el.lon ?? el.center?.lon,
@@ -314,11 +369,11 @@ out center tags qt;`;
       const walkMin = Math.max(1, Math.round(p.distance * 1.3 / 80));
       const dist = I18N.fmtDist(p.distance);
       const details = [p.name && type ? type : '', fee, /^\d+$/.test(p.capacity) ? t('park.spaces', { n: I18N.fmtNum(+p.capacity) }) : ''].filter(Boolean).join(' \u00B7 ');
-      const nav = `https://www.google.com/maps/dir/?api=1&origin=${from.lat},${from.lng}&destination=${p.lat},${p.lng}&travelmode=driving`;
+      const nav = `https://www.google.com/maps/dir/?api=1&origin=${Number(from.lat)},${Number(from.lng)}&destination=${Number(p.lat)},${Number(p.lng)}&travelmode=driving`;
       return `<li style="display:flex;justify-content:space-between;align-items:center;gap:10px">
         <span><span class="dish-name">\uD83C\uDD7F\uFE0F ${escapeHtml(title)}</span><br>
           <small style="color:var(--c-muted)">${escapeHtml(details)} \u00B7 ${escapeHtml(t('park.walk', { dist, min: walkMin }))}</small></span>
-        <a class="btn-outline" style="flex:0 0 auto;width:auto;padding:6px 14px" href="${nav}" target="_blank" rel="noopener">${escapeHtml(t('park.route'))}</a>
+        <a class="btn-outline" style="flex:0 0 auto;width:auto;padding:6px 14px" href="${escapeHtml(nav)}" target="_blank" rel="noopener">${escapeHtml(t('park.route'))}</a>
       </li>`;
     }).join('')}</ul>`;
   }
@@ -336,7 +391,34 @@ out center tags qt;`;
     return best ? best[0] : null;
   }
 
+  // Alloggi OSM: si mostrano SOLO con un CIN valido (tag ref:cin). Dati
+  // costruiti prima della 5.3 non hanno il campo "cin": si legge ref:cin
+  // da rawTags; se manca o non e' valido l'alloggio non si mostra.
+  // I luoghi nascosti dopo una revisione (osmHidden) non si mostrano mai.
+  function osmVisible(r, hiddenSet) {
+    if (!r) return false;
+    if (hiddenSet && hiddenSet.has(r.id)) return false;
+    if (isLodging(r)) {
+      const c = Trust.cinOf(r);
+      if (!c) return false;
+      r.cin = c;
+    }
+    return true;
+  }
+  let osmHiddenSet = new Set();
+  function refreshOsmHidden() {
+    const store = window.RistoStore;
+    if (!store || typeof store.osmHiddenIds !== 'function') return Promise.resolve(osmHiddenSet);
+    return store.osmHiddenIds().then(s => (osmHiddenSet = s)).catch(() => osmHiddenSet);
+  }
+
   async function loadOsmRestaurants(origin, radius) {
+    const res = await loadOsmRaw(origin, radius);
+    const hidden = await refreshOsmHidden();
+    return { ...res, list: res.list.filter(r => osmVisible(r, hidden)) };
+  }
+
+  async function loadOsmRaw(origin, radius) {
     try {
       const list = await loadStaticRestaurants(origin, radius);
       if (list) return { list, stale: false };
@@ -349,7 +431,7 @@ out center tags qt;`;
     if (fresh) return { list: fresh, stale: false };
     try {
       const osm = await fetchOverpass(buildOverpassQuery(origin.lat, origin.lng, radius));
-      const list = (osm.elements || []).map(normalizeElement).filter(Boolean);
+      const list = (osm.elements || []).map(normalizeElement).filter(Boolean).map(expandItem).filter(Boolean);
       osmCacheSet(key, list);
       return { list, stale: false };
     } catch (e) {
@@ -360,9 +442,11 @@ out center tags qt;`;
     }
   }
 
+  // Annunci dei titolari nella zona (lettura REST con bounding box, cache 10 min)
   async function loadUserRestaurants(origin, radius) {
     try {
-      const all = await (window.RistoStore?.allPublicRestaurants?.() || Promise.resolve([]));
+      const store = window.RistoStore;
+      const all = store && typeof store.publicNear === 'function' ? await store.publicNear(origin, radius) : [];
       return all.filter(r => {
         const d = haversine(origin, { lat: r.lat, lng: r.lng });
         return d != null && d * 1000 <= radius;
@@ -409,6 +493,7 @@ out center tags qt;`;
       vegan: tags['diet:vegan'] || '',
       gluten_free: tags['diet:gluten_free'] || '',
       payments,
+      cin: String(tags['ref:cin'] || ''),
       rawTags: tags,
     };
   }
@@ -495,6 +580,8 @@ out center tags qt;`;
 
     // 1) match sul nome
     if (normalize(r.name).includes(nq)) return true;
+    const words = nq.split(/\s+/).filter(w => w.length > 1);
+    if (words.length > 1 && words.every(w => normalize(r.name).includes(w))) return true;
 
     // 2) match sulla cucina (tag OSM)
     if (normalize(r.cuisine).includes(nq)) return true;
@@ -557,8 +644,10 @@ out center tags qt;`;
         break;
     }
 
-    // In cima: alloggi verificati, poi gli altri dati dei titolari, poi OSM
-    const rank = r => (r.userGenerated ? 1 : 0) + (r.userGenerated && r.verified ? 1 : 0);
+    // Gruppi (vedi "Come ordiniamo i risultati"): 1) annunci dei titolari
+    // verificati, 2) annunci dei titolari non verificati, 3) OpenStreetMap.
+    // Dentro ogni gruppo resta l'ordinamento scelto (sort stabile).
+    const rank = r => !r.userGenerated ? 0 : (r.verified === true ? 2 : 1);
     res.sort((a,b) => rank(b) - rank(a));
 
     return res;
@@ -582,10 +671,10 @@ out center tags qt;`;
     const q = encodeURIComponent(r.name);
     const qWithCity = encodeURIComponent(`${r.name} ${state.cityName}`);
     const links = {
-      call: r.phone ? `tel:${r.phone.replace(/\s/g,'')}` : null,
-      maps: `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}`,
+      call: r.phone && Trust.telHref(r.phone) !== 'tel:' ? Trust.telHref(r.phone) : null,
+      maps: `https://www.google.com/maps/search/?api=1&query=${Number(r.lat)},${Number(r.lng)}`,
       mapsName: `https://www.google.com/maps/search/?api=1&query=${qWithCity}`,
-      website: r.website || null,
+      website: Trust.safeHttp(r.website) || null,
       justEat: `https://www.justeat.it/search?q=${q}`,
       deliveroo: `https://deliveroo.it/it/?searchQuery=${q}`,
       glovo: `https://glovoapp.com/it/it/?search=${q}`,
@@ -603,6 +692,8 @@ out center tags qt;`;
   // -------------- RICERCA PRINCIPALE ----------------------
   let searchSeq = 0;      // per ignorare risposte di ricerche superate
   let lastOsm = [];       // ultimi risultati OSM (per refresh rapido)
+  let lastUserWide = [];  // alloggi dei titolari tra il raggio scelto e 15 km
+  let refreshSeq = 0;     // per scartare risposte superate di refreshUserRestaurants
 
   async function search() {
     const cityInput = $('#cityInput').value.trim();
@@ -610,6 +701,7 @@ out center tags qt;`;
     if (!cityInput && !state.userPos) { toast(t('toast.needCity')); return; }
 
     const mySeq = ++searchSeq;
+    refreshSeq++;
     setLoading(true);
     state.query = query;
     state.warning = null;
@@ -638,21 +730,30 @@ out center tags qt;`;
         if (osmRes.stale) state.warning = { key: 'warn.osmStale' };
       }
 
-      // Alloggi: se entro il raggio scelto sono pochi, allarga fino a 15 km
+      // Alloggi: se entro il raggio scelto sono pochi, allarga fino a 15 km,
+      // sia per OpenStreetMap sia per gli annunci dei titolari.
+      // "Tutti" conta tutti i tipi di alloggio; un sottotipo conta solo quello.
       state.lodgingRadius = null;
-      const kindNeeded = wantedKind() === 'all' ? 'bnb' : wantedKind();
-      const enough = [...userGen, ...lastOsm].filter(r => lodgingKind(r) === kindNeeded).length >= LODGING_MIN;
+      lastUserWide = [];
+      const wk = wantedKind();
+      const countKind = list => list.filter(r => isLodging(r) && (wk === 'all' || lodgingKind(r) === wk)).length;
+      const enough = countKind([...userGen, ...lastOsm]) >= LODGING_MIN;
       if (!osmRes.error && lodgingMode() && state.radius < LODGING_MAX_RADIUS && !enough) {
         try {
-          const wide = await loadOsmRestaurants(origin, LODGING_MAX_RADIUS);
+          const [wide, wideUser] = await Promise.all([
+            loadOsmRestaurants(origin, LODGING_MAX_RADIUS),
+            loadUserRestaurants(origin, LODGING_MAX_RADIUS),
+          ]);
           if (mySeq !== searchSeq) return;
           const have = new Set(lastOsm.map(r => r.id));
           lastOsm = lastOsm.concat(wide.list.filter(r => isLodging(r) && !have.has(r.id)));
+          const haveU = new Set(userGen.map(r => r.id));
+          lastUserWide = wideUser.filter(r => isLodging(r) && !haveU.has(r.id));
           state.lodgingRadius = LODGING_MAX_RADIUS;
         } catch {}
       }
 
-      state.restaurants = [...userGen, ...lastOsm];
+      state.restaurants = [...userGen, ...lastUserWide, ...lastOsm];
       state.error = null;
     } catch (e) {
       if (mySeq !== searchSeq) return;
@@ -668,9 +769,19 @@ out center tags qt;`;
   // nuovo OpenStreetMap: usato dopo login/salvataggi del ristoratore.
   async function refreshUserRestaurants() {
     if (state.loading || state.error) return;
+    const mine = ++refreshSeq;
+    const searchAtStart = searchSeq;
     const origin = state.userPos || state.origin;
-    const userGen = await loadUserRestaurants(origin, state.radius);
-    state.restaurants = [...userGen, ...lastOsm];
+    const wide = state.lodgingRadius && state.lodgingRadius > state.radius ? state.lodgingRadius : 0;
+    const [userGen, wideUser] = await Promise.all([
+      loadUserRestaurants(origin, state.radius),
+      wide ? loadUserRestaurants(origin, wide) : Promise.resolve([]),
+    ]);
+    // risposta superata (un altro refresh o una nuova ricerca nel frattempo)
+    if (mine !== refreshSeq || searchAtStart !== searchSeq || state.loading) return;
+    const haveU = new Set(userGen.map(r => r.id));
+    lastUserWide = wideUser.filter(r => isLodging(r) && !haveU.has(r.id));
+    state.restaurants = [...userGen, ...lastUserWide, ...lastOsm];
     renderResults();
   }
 
@@ -708,12 +819,14 @@ out center tags qt;`;
 
     countEl.textContent = t(filtered.length === 1 ? 'results.count.one' : 'results.count.other',
       { n: I18N.fmtNum(filtered.length) });
+    const attr = $('#resultsAttribution');
+    if (attr) attr.hidden = false;
 
     if (!filtered.length) {
       listEl.innerHTML = lodgingBannerHtml() + `<div class="empty">
         <div class="empty-mark">${escapeHtml(t('results.emptyMark'))}</div>
         <p><strong>${escapeHtml(t('results.emptyTitle'))}</strong></p>
-        <p>${escapeHtml(t('results.emptyHint'))}</p>
+        <p>${escapeHtml(t(lodgingMode() ? 'lodging.emptyHint' : 'results.emptyHint'))}</p>
       </div>` + ownerLineHtml();
       return;
     }
@@ -746,17 +859,18 @@ out center tags qt;`;
     if (!lodgingMode()) return '';
     const city = state.cityName || '';
     const km = m => I18N.fmtNum(m / 1000);
-    const kind = wantedKind() === 'all' ? 'bnb' : wantedKind();
+    const kind = wantedKind();
     const widened = state.lodgingRadius && state.lodgingRadius > state.radius
       ? `<p style="margin:0 0 8px"><strong>${escapeHtml(t('lodging.widened', { kind: t('kindpl.' + kind), r: km(state.radius), w: km(state.lodgingRadius) }))}</strong></p>` : '';
     const b = bookingUrl(encodeURIComponent(city));
     const a = `https://www.airbnb.it/s/${encodeURIComponent(city)}/homes`;
     return `<div class="empty" style="padding:14px 18px;margin-bottom:12px;grid-column:1/-1;text-align:left">
       ${widened}
+      <p style="margin:0 0 8px">${t('lodging.cinOnly')}</p>
       <p style="margin:0 0 10px">${t('lodging.portals', { city: escapeHtml(city) })}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <a class="portal-btn" href="${b}" target="_blank" rel="noopener"><span class="portal-name">Booking \u2197</span></a>
-        <a class="portal-btn" href="${a}" target="_blank" rel="noopener"><span class="portal-name">Airbnb \u2197</span></a>
+        <a class="portal-btn" href="${escapeHtml(b)}" target="_blank" rel="noopener"><span class="portal-name">Booking \u2197</span></a>
+        <a class="portal-btn" href="${escapeHtml(a)}" target="_blank" rel="noopener"><span class="portal-name">Airbnb \u2197</span></a>
       </div>
     </div>`;
   }
@@ -789,53 +903,52 @@ out center tags qt;`;
 
     // Link primari: sempre Maps + chiamata se disponibile
     const callBtn = links.call
-      ? `<a class="btn-outline" href="${links.call}">\u260E ${escapeHtml(t('card.call'))}</a>`
+      ? `<a class="btn-outline" href="${escapeHtml(links.call)}">\u260E ${escapeHtml(t('card.call'))}</a>`
       : '';
 
     const isBnb = isLodging(r);
     const discount = Trust.discountOf(r, isBnb);
-    // Alloggi dei titolari: "Verificato" solo se il titolare ha provato il sito
-    const ownerVerified = r.userGenerated && (!isBnb || r.verified === true);
+    // Annunci dei titolari: il segno \u2713 SOLO se verificato (verified === true),
+    // per alloggi e locali allo stesso modo
+    const ownerVerified = r.userGenerated && r.verified === true;
     const badgeHtml = !r.userGenerated ? ''
-      : isBnb
-        ? (r.verified === true
-            ? `<div class="verified-badge">\u2713 ${escapeHtml(t('card.verified'))}</div>`
-            : `<div class="verified-badge is-unverified">${escapeHtml(t('card.unverified'))}</div>`)
-        : `<div class="verified-badge">\u2713 ${escapeHtml(t('card.verifiedFood'))}</div>`;
+      : ownerVerified
+        ? `<div class="verified-badge">\u2713 ${escapeHtml(t('card.verified'))}</div>`
+        : `<div class="verified-badge is-unverified">${escapeHtml(t('card.unverified'))}</div>`;
     const stars = /^\d$/.test(r.rawTags?.stars || '') ? ' ' + '\u2605'.repeat(+r.rawTags.stars) : '';
 
     // Deep link portali (sempre visibili come riga principale)
     const portalBtns = isBnb ? `
-      <a class="portal-btn" href="${links.booking}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Booking.com' }))}">
+      <a class="portal-btn" href="${escapeHtml(links.booking)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Booking.com' }))}">
         <span class="portal-name">Booking</span>
       </a>
-      <a class="portal-btn" href="${links.airbnb}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.airbnbArea'))}">
+      <a class="portal-btn" href="${escapeHtml(links.airbnb)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.airbnbArea'))}">
         <span class="portal-name">Airbnb</span>
       </a>
-      <a class="portal-btn" href="${links.tripadvisor}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'TripAdvisor' }))}">
+      <a class="portal-btn" href="${escapeHtml(links.tripadvisor)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'TripAdvisor' }))}">
         <span class="portal-name">TripAdvisor</span>
       </a>
-      <a class="portal-btn" href="${links.googleHotel}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.pricesGoogle'))}">
+      <a class="portal-btn" href="${escapeHtml(links.googleHotel)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.pricesGoogle'))}">
         <span class="portal-name">${escapeHtml(t('portal.prices'))}</span>
       </a>` : `
-      <a class="portal-btn" href="${links.justEat}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'JustEat' }))}">
+      <a class="portal-btn" href="${escapeHtml(links.justEat)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'JustEat' }))}">
         <span class="portal-name">JustEat</span>
       </a>
-      <a class="portal-btn" href="${links.deliveroo}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Deliveroo' }))}">
+      <a class="portal-btn" href="${escapeHtml(links.deliveroo)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Deliveroo' }))}">
         <span class="portal-name">Deliveroo</span>
       </a>
-      <a class="portal-btn" href="${links.thefork}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'TheFork' }))}">
+      <a class="portal-btn" href="${escapeHtml(links.thefork)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'TheFork' }))}">
         <span class="portal-name">TheFork</span>
       </a>
-      <a class="portal-btn" href="${links.glovo}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Glovo' }))}">
+      <a class="portal-btn" href="${escapeHtml(links.glovo)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.searchOn', { p: 'Glovo' }))}">
         <span class="portal-name">Glovo</span>
       </a>
-      <a class="portal-btn" href="${links.googleMenu}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.menuGoogle'))}">
+      <a class="portal-btn" href="${escapeHtml(links.googleMenu)}" target="_blank" rel="noopener" title="${escapeHtml(t('portal.menuGoogle'))}">
         <span class="portal-name">${escapeHtml(t('portal.menu'))}</span>
       </a>`;
 
     return `
-      <article class="card ${ownerVerified ? 'is-verified' : r.userGenerated ? 'is-owner' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms">
+      <article class="card ${ownerVerified ? 'is-verified' : r.userGenerated ? 'is-owner' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms" aria-label="${escapeHtml(r.name)}">
         ${badgeHtml}
         <div class="card-top">
           <div>
@@ -861,7 +974,7 @@ out center tags qt;`;
         ${r.userGenerated ? '' : `<div class="portals-row">${portalBtns}</div>`}
 
         <div class="card-actions">
-          <a class="btn-ghost" href="${links.maps}" target="_blank" rel="noopener">
+          <a class="btn-ghost" href="${escapeHtml(links.maps)}" target="_blank" rel="noopener">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             ${escapeHtml(t('card.map'))}
           </a>
@@ -884,9 +997,10 @@ out center tags qt;`;
     const lodging = isLodging(r);
     const discount = Trust.discountOf(r, lodging);
     const cin = lodging ? Trust.cinOf(r) : '';
-    const titleCheck = r.userGenerated && (!lodging || r.verified === true);
-    const verifyNote = r.userGenerated && lodging
+    const titleCheck = r.userGenerated && r.verified === true;
+    const verifyNote = r.userGenerated
       ? `<p class="verify-note ${r.verified === true ? 'is-ok' : ''}">${escapeHtml(t(r.verified === true ? 'modal.verifiedNote' : 'modal.unverifiedNote'))}</p>` : '';
+    const site = Trust.safeHttp(r.website);
     const waNum = r.userGenerated ? Trust.waDigits(r.whatsapp) : '';
     const mail = r.userGenerated && Trust.validEmail(r.contactEmail) ? r.contactEmail : '';
 
@@ -963,12 +1077,12 @@ out center tags qt;`;
         <div class="modal-section">
           <h4>${escapeHtml(t('modal.contacts'))}</h4>
           ${r.address ? `<p><strong>${escapeHtml(t('modal.address'))}</strong> ${escapeHtml(r.address)}</p>` : ''}
-          ${r.phone   ? `<p><strong>${escapeHtml(t('modal.phone'))}</strong> <a href="tel:${r.phone.replace(/\s/g,'')}">${escapeHtml(r.phone)}</a></p>` : ''}
-          ${/^https?:\/\//i.test(r.website || '') ? `<p><strong>${escapeHtml(t('modal.site'))}</strong> <a href="${escapeHtml(r.website)}" target="_blank" rel="noopener">${escapeHtml(r.website)}</a></p>` : ''}
+          ${links.call ? `<p><strong>${escapeHtml(t('modal.phone'))}</strong> <a href="${escapeHtml(links.call)}">${escapeHtml(r.phone)}</a></p>` : ''}
+          ${site ? `<p><strong>${escapeHtml(t('modal.site'))}</strong> <a href="${escapeHtml(site)}" target="_blank" rel="noopener nofollow">${escapeHtml(site)}</a></p>` : ''}
           ${waNum ? `<p><strong>${escapeHtml(t('modal.whatsapp'))}</strong> <a href="https://wa.me/${waNum}" target="_blank" rel="noopener">+${escapeHtml(waNum)}</a></p>` : ''}
           ${mail ? `<p><strong>${escapeHtml(t('modal.email'))}</strong> <a href="mailto:${escapeHtml(mail)}">${escapeHtml(mail)}</a></p>` : ''}
           <p style="margin-top:12px">
-            <a class="btn-outline" style="display:inline-flex;padding:10px 18px" href="${links.maps}" target="_blank" rel="noopener">${escapeHtml(t('modal.openMaps'))} \u2197</a>
+            <a class="btn-outline" style="display:inline-flex;padding:10px 18px" href="${escapeHtml(links.maps)}" target="_blank" rel="noopener">${escapeHtml(t('modal.openMaps'))} \u2197</a>
           </p>
         </div>
 
@@ -998,22 +1112,22 @@ out center tags qt;`;
           <h4>${escapeHtml(t('modal.pricesAvail'))}</h4>
           <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">${escapeHtml(t('modal.noBooking'))}</p>
           <div class="portals-grid">
-            <a class="portal-btn lg" href="${links.booking}" target="_blank" rel="noopener">\uD83D\uDECF\uFE0F Booking.com</a>
-            <a class="portal-btn lg" href="${links.airbnb}" target="_blank" rel="noopener">\uD83C\uDFE0 ${escapeHtml(t('modal.airbnbArea'))}</a>
-            <a class="portal-btn lg" href="${links.tripadvisor}" target="_blank" rel="noopener">\u2728 TripAdvisor</a>
-            <a class="portal-btn lg" href="${links.googleHotel}" target="_blank" rel="noopener">\uD83D\uDD0D ${escapeHtml(t('modal.pricesGoogle'))}</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.booking)}" target="_blank" rel="noopener">\uD83D\uDECF\uFE0F Booking.com</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.airbnb)}" target="_blank" rel="noopener">\uD83C\uDFE0 ${escapeHtml(t('modal.airbnbArea'))}</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.tripadvisor)}" target="_blank" rel="noopener">\u2728 TripAdvisor</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.googleHotel)}" target="_blank" rel="noopener">\uD83D\uDD0D ${escapeHtml(t('modal.pricesGoogle'))}</a>
           </div>
         </div>` : r.userGenerated ? '' : `
         <div class="modal-section">
           <h4>${escapeHtml(t('modal.whereMenu'))}</h4>
           <p style="color:var(--c-muted);font-size:13px;margin-bottom:12px">${t('modal.noPrices')}</p>
           <div class="portals-grid">
-            <a class="portal-btn lg" href="${links.justEat}" target="_blank" rel="noopener">\uD83D\uDEF5 JustEat</a>
-            <a class="portal-btn lg" href="${links.deliveroo}" target="_blank" rel="noopener">\uD83C\uDF54 Deliveroo</a>
-            <a class="portal-btn lg" href="${links.glovo}" target="_blank" rel="noopener">\uD83D\uDED2 Glovo</a>
-            <a class="portal-btn lg" href="${links.thefork}" target="_blank" rel="noopener">\uD83C\uDF74 TheFork</a>
-            <a class="portal-btn lg" href="${links.googleMenu}" target="_blank" rel="noopener">\uD83D\uDD0D ${escapeHtml(t('modal.menuGoogle'))}</a>
-            <a class="portal-btn lg" href="${links.tripadvisor}" target="_blank" rel="noopener">\u2728 TripAdvisor</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.justEat)}" target="_blank" rel="noopener">\uD83D\uDEF5 JustEat</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.deliveroo)}" target="_blank" rel="noopener">\uD83C\uDF54 Deliveroo</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.glovo)}" target="_blank" rel="noopener">\uD83D\uDED2 Glovo</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.thefork)}" target="_blank" rel="noopener">\uD83C\uDF74 TheFork</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.googleMenu)}" target="_blank" rel="noopener">\uD83D\uDD0D ${escapeHtml(t('modal.menuGoogle'))}</a>
+            <a class="portal-btn lg" href="${escapeHtml(links.tripadvisor)}" target="_blank" rel="noopener">\u2728 TripAdvisor</a>
           </div>
         </div>`}
 
@@ -1032,8 +1146,13 @@ out center tags qt;`;
           <p style="margin:8px 0 0">${Trust.reportLinkHtml(r.id, r.name)}</p>
         </div>
       </div>`;
+    const wasOpen = $('#modalBackdrop').classList.contains('is-open');
     $('#modalBackdrop').classList.add('is-open');
     $('#modalCloseBtn').addEventListener('click', closeModal);
+    if (!wasOpen) {
+      modalReturnFocus = document.activeElement;
+      try { $('#modalCloseBtn').focus({ preventScroll: true }); } catch {}
+    }
 
     if (isLodging(r)) {
       const from = { lat: r.lat, lng: r.lng };
@@ -1048,7 +1167,17 @@ out center tags qt;`;
   }
 
   let openDetailsId = null;
-  function closeModal() { openDetailsId = null; $('#modalBackdrop').classList.remove('is-open'); }
+  let modalReturnFocus = null;
+  function closeModal() {
+    const wasOpen = $('#modalBackdrop').classList.contains('is-open');
+    openDetailsId = null;
+    $('#modalBackdrop').classList.remove('is-open');
+    if (wasOpen && modalReturnFocus && document.contains(modalReturnFocus)) {
+      try { modalReturnFocus.focus({ preventScroll: true }); } catch {}
+    }
+    modalReturnFocus = null;
+    if (pendingUpdate) maybeApplyUpdate();
+  }
 
   // -------------- TOAST -----------------------------------
   let toastTimer;
@@ -1072,7 +1201,7 @@ out center tags qt;`;
         let display = await nearestPlaceName(state.userPos);
         if (!display) {
           try {
-            const rev = await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?lat=${state.userPos.lat}&lon=${state.userPos.lng}&format=json&zoom=14&accept-language=it`, {}, 8000);
+            const rev = await fetchWithTimeout(`https://nominatim.openstreetmap.org/reverse?lat=${state.userPos.lat.toFixed(3)}&lon=${state.userPos.lng.toFixed(3)}&format=json&zoom=14&accept-language=it`, {}, 8000);
             const j = await rev.json();
             display = j.address?.city || j.address?.town || j.address?.village || j.address?.county;
           } catch {}
@@ -1106,6 +1235,76 @@ out center tags qt;`;
       deferredInstall = null;
       $('#installBanner').classList.remove('is-visible');
     });
+  }
+
+  // -------------- AGGIORNAMENTI (service worker) ----------
+  let pendingUpdate = null;     // service worker in attesa
+  let formDirty = false;        // l'utente ha scritto in un modulo (titolari/segnalazione)
+  document.addEventListener('input', e => {
+    if (e.target && e.target.closest && e.target.closest('#ownerPanel, #sheetBackdrop')) formDirty = true;
+  }, true);
+  function uiBusy() {
+    const open = sel => { const el = document.querySelector(sel); return !!(el && el.classList.contains('is-open')); };
+    if (open('#ownerPanel') || open('#modalBackdrop') || open('#sheetBackdrop')) return true;
+    if (formDirty) return true;
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.id !== 'langSelect') return true;
+    return false;
+  }
+  function showUpdateToast() {
+    const el = $('#updateToast');
+    if (el) el.hidden = false;
+  }
+  let updateRequested = false;   // l'utente (o l'app inattiva) ha chiesto la nuova versione
+  let activatedElsewhere = false; // nuova versione gia' attiva (es. da un'altra scheda)
+  let reloading = false;
+  function reloadNow() { if (reloading) return; reloading = true; location.reload(); }
+  function applyUpdate() {
+    updateRequested = true;
+    if (pendingUpdate) pendingUpdate.postMessage({ type: 'SKIP_WAITING' });
+    else if (activatedElsewhere) reloadNow();
+  }
+  function maybeApplyUpdate() {
+    if (!pendingUpdate && !activatedElsewhere) return;
+    if (uiBusy()) showUpdateToast(); else applyUpdate();
+  }
+  function setupServiceWorker() {
+    if (!('serviceWorker' in navigator)) return;
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      // primo avvio (nessuna versione precedente): niente ricarica
+      if (!hadController && !updateRequested) { hadController = true; return; }
+      if (updateRequested) { reloadNow(); return; }
+      // attivata da un'altra scheda: ricarica solo se l'utente non sta facendo nulla
+      activatedElsewhere = true;
+      maybeApplyUpdate();
+    });
+    const btn = $('#updateToastBtn');
+    if (btn) btn.addEventListener('click', applyUpdate);
+    const track = reg => {
+      const waiting = () => {
+        if (reg.waiting && navigator.serviceWorker.controller) { pendingUpdate = reg.waiting; maybeApplyUpdate(); }
+      };
+      waiting();
+      reg.addEventListener('updatefound', () => {
+        const nw = reg.installing;
+        if (!nw) return;
+        nw.addEventListener('statechange', () => { if (nw.state === 'installed') waiting(); });
+      });
+    };
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+        .then(reg => {
+          track(reg);
+          reg.update().catch(()=>{});
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') reg.update().catch(()=>{});
+          });
+        })
+        .catch(()=>{});
+    });
+    // chiusura di pannello/foglio: se c'e' un aggiornamento in attesa, riprova
+    window.addEventListener('ristoapp:ui-idle', () => { formDirty = false; maybeApplyUpdate(); });
   }
 
   // -------------- INIT ------------------------------------
@@ -1187,28 +1386,12 @@ out center tags qt;`;
     $('#installBannerBtn').addEventListener('click', promptInstall);
 
     // Service worker
-    // Aggiornamento automatico: controlla se c'è una nuova versione
-    // all'apertura e ogni volta che l'app torna in primo piano; quando
-    // il nuovo service worker prende il controllo, ricarica la pagina.
-    if ('serviceWorker' in navigator) {
-      const hadController = !!navigator.serviceWorker.controller;
-      let reloading = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!hadController || reloading) return; // primo avvio: niente reload
-        reloading = true;
-        location.reload();
-      });
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
-          .then(reg => {
-            reg.update().catch(()=>{});
-            document.addEventListener('visibilitychange', () => {
-              if (document.visibilityState === 'visible') reg.update().catch(()=>{});
-            });
-          })
-          .catch(()=>{});
-      });
-    }
+    // Controlla se c'e' una nuova versione all'apertura e quando l'app torna
+    // in primo piano. La nuova versione si attiva (con ricarica) SOLO se
+    // l'utente non sta facendo nulla: nessun pannello, dettaglio o foglio
+    // aperto e nessun campo modificato. Altrimenti compare l'avviso
+    // "Aggiornamento disponibile - Aggiorna".
+    setupServiceWorker();
 
     // Cambio lingua: ridisegna risultati e dettaglio aperto senza ricaricare
     I18N.onChange(() => {

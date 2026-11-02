@@ -3,8 +3,10 @@
  *  - Prenotazione diretta con sconto (solo alloggi verificati)
  *  - CIN con link al sito del Ministero del Turismo
  *  - Box "Per la tua sicurezza" negli alloggi
- *  - Segnalazioni (anche senza login)
- *  - Finestra "Avvertenze e condizioni d'uso"
+ *  - Segnalazioni (anche senza login) con codice di riferimento
+ *  - Testi legali: Chi gestisce RistoApp, Privacy e cookie,
+ *    Condizioni d'uso, Come ordiniamo i risultati e lo sconto
+ *  - Rivendicazione di un CIN usato da altri
  *
  *  Usa un "foglio" sovrapposto (#sheetBackdrop) che sta sopra sia al
  *  dettaglio sia al pannello titolari.
@@ -15,7 +17,9 @@
   const t = (k, p) => I18N.t(k, p);
   const MINISTRY_URL = 'https://bdsr.ministeroturismo.gov.it/';
   const CIN_RE = /^IT\d{6}[A-Z0-9]{2}[A-Z0-9]{1,8}$/;
-  const REASONS = ['fake', 'not_owner', 'payment', 'wrong_data', 'other'];
+  const REASONS = ['fake', 'not_owner', 'payment', 'discount', 'wrong_data', 'other'];
+  const CFG = window.RISTOAPP_CONFIG || {};
+  const LEGAL = ['about', 'privacy', 'terms', 'ranking'];
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -32,7 +36,15 @@
     else if (!plus && /^0\d{5,10}$/.test(d)) d = '39' + d;     // fisso italiano
     return d.length >= 8 && d.length <= 15 ? d : '';
   }
-  const telHref = p => 'tel:' + String(p || '').replace(/[^\d+]/g, '');
+  // tel: sicuro: solo cifre e "+" (nessun carattere puo' uscire dall'attributo)
+  const telHref = p => 'tel:' + String(p ?? '').replace(/[^\d+]/g, '');
+  // href esterno sicuro: solo http(s), altrimenti ''
+  function safeHttp(u) {
+    try {
+      const url = new URL(String(u || '').trim());
+      return (url.protocol === 'https:' || url.protocol === 'http:') ? url.href : '';
+    } catch { return ''; }
+  }
   const validEmail = e => /^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(String(e || ''));
 
   // Sconto mostrabile: solo alloggi registrati, VERIFICATI, sconto > 0
@@ -41,9 +53,12 @@
     const n = r.directDiscount;
     return Number.isInteger(n) && n > 0 && n <= 30 ? n : 0;
   }
+  // CIN valido dell'annuncio (titolare) o del luogo OSM (tag "cin"/ref:cin), altrimenti ''
   function cinOf(r) {
-    const c = normCin(r && (r.cin || (r.rawTags && r.rawTags['ref:cin'])));
-    return c && c.length <= 24 ? c : '';
+    if (!r) return '';
+    const raw = (typeof r.cin === 'string' && r.cin) || (r.rawTags && typeof r.rawTags['ref:cin'] === 'string' && r.rawTags['ref:cin']) || '';
+    const c = normCin(raw);
+    return CIN_RE.test(c) ? c : '';
   }
 
   // ---------- CIN: Comune ISTAT (caratteri 3-8) ----------
@@ -90,7 +105,7 @@
     try {
       if (!store || typeof store.cinStatus !== 'function') throw new Error(t('cin.err.network'));
       const st = await store.cinStatus(cin);
-      if (st.taken) return { ok: false, error: t(st.mine ? 'ed.cin.yours' : 'cin.err.taken') };
+      if (st.taken) return { ok: false, error: t(st.mine ? 'ed.cin.yours' : 'cin.err.taken'), taken: !st.mine, cin };
     } catch (e) {
       return { ok: false, error: e && e.message ? e.message : t('cin.err.network') };
     }
@@ -100,9 +115,10 @@
     if (!comune) return { ok: false, error: t('cin.err.comune') };
     return { ok: true, cin, comune, unchecked: false };
   }
-  function cinResultHtml(res) {
+  function cinResultHtml(res, opts = {}) {
     if (!res) return '';
-    if (!res.ok) return `<p class="cin-result is-error" role="alert">${esc(res.error)}</p>`;
+    if (!res.ok) return `<p class="cin-result is-error" role="alert">${esc(res.error)}</p>` +
+      (res.taken ? `<p class="cin-claim-line"><button type="button" class="link-btn" ${opts.register ? 'data-reg-claim' : 'data-cin-claim'}="${esc(res.cin)}">${esc(t(opts.register ? 'claim.linkRegister' : 'claim.link'))}</button></p>` : '');
     return res.comune
       ? `<p class="cin-result is-ok" role="status">\u2714\uFE0F ${esc(t('cin.ok', { comune: res.comune.name, prov: res.comune.prov }))}</p>`
       : `<p class="cin-result is-warn" role="status">${esc(t('cin.okUnchecked'))}</p>`;
@@ -125,7 +141,7 @@
   // ---------- frammenti HTML ----------
   function discountBtnHtml(r, n) {
     return `<button type="button" class="disc-btn" data-discount="${esc(r.id)}">
-      <span class="disc-main">${esc(t('disc.btn', { n }))}</span>
+      <span class="disc-main">${esc(t('disc.btn', { n, name: r.name }))}</span>
       <span class="disc-note">${esc(t('disc.note'))}</span>
     </button>`;
   }
@@ -181,18 +197,27 @@
     bd.classList.add('is-open');
     const c = document.getElementById('sheetContent');
     c.scrollTop = 0;
-    c.querySelector('[data-sheet-close]').onclick = closeSheet;
+    const closeBtn = c.querySelector('[data-sheet-close]');
+    closeBtn.onclick = closeSheet;
+    if (!bd.contains(document.activeElement)) lastFocus = document.activeElement;
+    try { closeBtn.focus({ preventScroll: true }); } catch {}
   }
+  let lastFocus = null;
   function closeSheet() {
     const bd = document.getElementById('sheetBackdrop');
     if (bd) bd.classList.remove('is-open');
     current = null;
+    if (lastFocus && document.contains(lastFocus)) { try { lastFocus.focus({ preventScroll: true }); } catch {} }
+    lastFocus = null;
+    try { window.dispatchEvent(new Event('ristoapp:ui-idle')); } catch {}
   }
   const sheetOpen = () => !!current;
   function sheetTitle(kind) {
+    if (LEGAL.includes(kind)) return t('legal.' + kind + '.title');
     return kind === 'discount' ? t('disc.sheetTitle')
-      : kind === 'report' ? t('rep.title')
-      : t('terms.title');
+      : kind === 'report' || kind === 'reportDone' ? t('rep.title')
+      : kind === 'cinClaim' ? t('claim.title')
+      : t('legal.terms.title');
   }
 
   // ---------- prenotazione diretta ----------
@@ -209,10 +234,12 @@
       const mail = `mailto:${encodeURIComponent(r.contactEmail).replace('%40', '@')}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(msg)}`;
       opts.push(`<a class="disc-opt" href="${esc(mail)}">✉️ ${esc(t('disc.email'))}<small>${esc(r.contactEmail)}</small></a>`);
     }
-    if (/^https?:\/\//i.test(r.website || '')) opts.push(`<a class="disc-opt" href="${esc(r.website)}" target="_blank" rel="noopener">🌐 ${esc(t('disc.website'))}<small>${esc(r.website.replace(/^https?:\/\//i, '').replace(/\/$/, ''))}</small></a>`);
+    const site = safeHttp(r.website);
+    if (site) opts.push(`<a class="disc-opt" href="${esc(site)}" target="_blank" rel="noopener">🌐 ${esc(t('disc.website'))}<small>${esc(site.replace(/^https?:\/\//i, '').replace(/\/$/, ''))}</small></a>`);
 
     openSheet(`
       <p class="sheet-sub">${t('disc.sheetSub', { name: '<strong>' + esc(r.name) + '</strong>', n })}</p>
+      <p class="sheet-note">${esc(t('disc.terms'))} <a href="#" data-legal="ranking">${esc(t('legal.ranking.title'))}</a></p>
       <div class="disc-opts">${opts.join('') || `<p>${esc(t('disc.noContacts'))}</p>`}</div>
       <label class="form-field disc-msg">
         <span>${esc(t('disc.msgLabel'))}</span>
@@ -255,16 +282,14 @@
       }
       btn.disabled = true; btn.textContent = t('rep.sending');
       try {
-        await store.report({
+        const ref = await store.report({
           restaurant: String(id),
+          name: String(name || ''),
           reason: REASONS.includes(fd.get('reason')) ? fd.get('reason') : 'other',
           text: String(fd.get('text') || '').slice(0, 500),
         });
-        current = { kind: 'reportDone', args: [] };
-        document.querySelector('#sheetContent .sheet-body').innerHTML =
-          `<p class="report-thanks">✔️ ${esc(t('rep.thanks'))}</p>
-           <button type="button" class="btn-primary btn-full" data-sheet-close>${esc(t('modal.close'))}</button>`;
-        document.querySelector('#sheetContent .sheet-body [data-sheet-close]').onclick = closeSheet;
+        current = { kind: 'reportDone', args: [ref] };
+        renderReportDone(ref);
       } catch (err) {
         msgEl.textContent = err && err.message ? err.message : t('rep.error');
         msgEl.classList.add('is-error');
@@ -273,9 +298,90 @@
     };
   }
 
-  // ---------- avvertenze ----------
-  function openTerms() {
-    openSheet(`<div class="terms">${t('terms.body')}</div>`, 'terms', []);
+  function renderReportDone(ref) {
+    const body = document.querySelector('#sheetContent .sheet-body');
+    if (!body) return;
+    body.innerHTML =
+      `<p class="report-thanks">✔️ ${esc(t('rep.thanks'))}</p>
+       <p class="report-ref">${esc(t('rep.ref'))} <code id="reportRef">${esc(ref || '')}</code></p>
+       <p class="sheet-note">${esc(t('rep.refNote'))}</p>
+       <button type="button" class="btn-primary btn-full" data-sheet-close>${esc(t('modal.close'))}</button>`;
+    body.querySelector('[data-sheet-close]').onclick = closeSheet;
+  }
+
+  // ---------- testi legali ----------
+  const isTodo = v => !v || typeof v !== 'string' || !v.trim() || /\{\{[^}]*\}\}/.test(v);
+  function operatorHtml() {
+    const op = CFG.operator || {};
+    const todo = `<span class="legal-todo">${esc(t('legal.todo'))}</span>`;
+    const email = isTodo(op.email) ? todo
+      : (validEmail(op.email) ? `<a href="mailto:${esc(op.email)}">${esc(op.email)}</a>` : esc(op.email));
+    let date = '';
+    try {
+      const u = CFG.legalUpdated || { year: 2026, month: 11 };
+      date = new Intl.DateTimeFormat(I18N.locale(), { month: 'long', year: 'numeric' })
+        .format(new Date(Date.UTC(u.year, u.month - 1, 15)));
+    } catch { date = '11/2026'; }
+    return {
+      name: isTodo(op.name) ? todo : esc(op.name),
+      city: isTodo(op.city) ? todo : esc(op.city),
+      email, date: esc(date),
+    };
+  }
+  function openLegal(kind) {
+    if (!LEGAL.includes(kind)) kind = 'terms';
+    openSheet(`<div class="terms legal-text">${t('legal.' + kind + '.body', operatorHtml())}</div>
+      <p class="legal-nav">${LEGAL.filter(k => k !== kind).map(k =>
+        `<a href="#" data-legal="${k}">${esc(t('legal.' + k + '.title'))}</a>`).join(' · ')}</p>`, kind, [kind]);
+  }
+  const openTerms = () => openLegal('terms');
+
+  // ---------- CIN gia' usato da altri: rivendicazione ----------
+  function openCinClaim(cin) {
+    const store = window.RistoStore;
+    const u = store && store.currentUser && store.currentUser();
+    const needLogin = !u;
+    const needVerify = u && !u.emailVerified;
+    openSheet(`
+      <p class="sheet-sub">${esc(t('claim.sub'))}</p>
+      ${needLogin ? `<p class="report-msg is-error">${esc(t('claim.needLogin'))}</p>` : ''}
+      ${needVerify ? `<p class="report-msg is-error">${esc(t('claim.needVerified'))}</p>` : ''}
+      <form id="claimForm" class="report-form">
+        <label class="form-field">
+          <span>${esc(t('ed.cin.label'))}</span>
+          <input name="cin" maxlength="24" autocapitalize="characters" autocomplete="off" spellcheck="false" value="${esc(normCin(cin))}" placeholder="IT043013C2ABC12345" />
+        </label>
+        <label class="form-field">
+          <span>${esc(t('claim.text'))}</span>
+          <textarea name="text" rows="5" maxlength="1000" placeholder="${esc(t('claim.textPh'))}"></textarea>
+        </label>
+        <p class="sheet-note">${esc(t('claim.privacy'))}</p>
+        <p class="report-msg" id="claimMsg" role="status"></p>
+        <button type="submit" class="btn-primary btn-full" ${needLogin || needVerify ? 'disabled' : ''}>${esc(t('claim.send'))}</button>
+      </form>`, 'cinClaim', [cin]);
+    const form = document.getElementById('claimForm');
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const msg = document.getElementById('claimMsg');
+      const btn = form.querySelector('button[type="submit"]');
+      msg.textContent = ''; msg.classList.remove('is-error');
+      btn.disabled = true;
+      try {
+        const ref = await store.createCinClaim(fd.get('cin'), fd.get('text'));
+        try { localStorage.removeItem('ristoapp-pending-claim'); } catch {}
+        current = { kind: 'claimDone', args: [] };
+        const body = document.querySelector('#sheetContent .sheet-body');
+        body.innerHTML = `<p class="report-thanks">✔️ ${esc(t('claim.thanks'))}</p>
+          <p class="report-ref">${esc(t('rep.ref'))} <code>${esc(ref)}</code></p>
+          <button type="button" class="btn-primary btn-full" data-sheet-close>${esc(t('modal.close'))}</button>`;
+        body.querySelector('[data-sheet-close]').onclick = closeSheet;
+      } catch (err) {
+        msg.textContent = err && err.message ? err.message : t('rep.error');
+        msg.classList.add('is-error');
+        btn.disabled = false;
+      }
+    };
   }
 
   // ---------- utilita' ----------
@@ -303,8 +409,12 @@
   document.addEventListener('click', e => {
     const rep = e.target.closest('[data-report]');
     if (rep) { e.preventDefault(); openReport(rep.dataset.report, rep.dataset.reportName || ''); return; }
+    const legal = e.target.closest('[data-legal]');
+    if (legal) { e.preventDefault(); openLegal(legal.dataset.legal); return; }
     const terms = e.target.closest('[data-terms]');
-    if (terms) { e.preventDefault(); openTerms(); }
+    if (terms) { e.preventDefault(); openTerms(); return; }
+    const claim = e.target.closest('[data-cin-claim]');
+    if (claim) { e.preventDefault(); openCinClaim(claim.dataset.cinClaim || ''); }
   });
   // Esc chiude prima il foglio (e non il dettaglio sotto)
   document.addEventListener('keydown', e => {
@@ -316,14 +426,17 @@
     const { kind, args } = current;
     if (kind === 'discount') openDiscount(...args);
     else if (kind === 'report') openReport(...args);
-    else if (kind === 'terms') openTerms();
+    else if (kind === 'reportDone') { document.querySelector('#sheetContent .sheet-head h3').textContent = sheetTitle(kind); renderReportDone(args[0]); }
+    else if (LEGAL.includes(kind)) openLegal(kind);
+    else if (kind === 'cinClaim') openCinClaim(...args);
   });
 
   window.RistoTrust = {
-    MINISTRY_URL, CIN_RE, normCin, waDigits, validEmail, discountOf, cinOf,
+    MINISTRY_URL, CIN_RE, normCin, waDigits, validEmail, discountOf, cinOf, telHref, safeHttp, esc,
     loadIstat, comuneForCin, distanceKm, insideComune, checkCin, cinResultHtml,
     setPendingCin, getPendingCin,
     discountBtnHtml, cinHtml, safetyHtml, reportLinkHtml,
-    openDiscount, openReport, openTerms, closeSheet, copyText, toast,
+    openDiscount, openReport, openTerms, openLegal, openCinClaim, closeSheet, copyText, toast,
+    sheetOpen,
   };
 })();

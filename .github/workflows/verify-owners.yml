@@ -1,7 +1,9 @@
 name: Verifica titolari
 
-# Ogni ora: verifica automatica dei titolari (codice sul sito o email
-# del dominio), conteggio segnalazioni, annunci nascosti.
+# Ogni ora: verifica automatica dei titolari (meta tag nella home page,
+# file .well-known o email del dominio), controllo CIN/Comune, conteggio
+# di segnalazioni e contestazioni in UN issue GitHub (solo numeri),
+# pulizia dei dati scaduti. Le segnalazioni NON nascondono nulla da sole.
 # Richiede il segreto FIREBASE_SERVICE_ACCOUNT (vedi SETUP-FIREBASE.md):
 # senza segreto il job termina subito senza errori.
 on:
@@ -10,7 +12,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: read     # checkout dello script
+  issues: write      # issue "RistoApp: segnalazioni da controllare" (solo conteggi)
 
 concurrency:
   group: verify-owners
@@ -54,4 +57,6 @@ jobs:
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           VERIFY_DEPS_DIR: ${{ runner.temp }}/verify-deps
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/verify-owners.mjs

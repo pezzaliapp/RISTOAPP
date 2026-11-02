@@ -1,0 +1,148 @@
+rules_version = '2';
+
+// ================================================================
+//  RistoApp - Firestore Security Rules
+//  Da incollare in: Console Firebase > Firestore Database > Regole
+//  (istruzioni in SETUP-FIREBASE.md)
+// ================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Funzioni di supporto ----------
+    function lodgingTypes() {
+      return ['B&B', 'Agriturismo', 'Affittacamere', 'Casa vacanze', 'Hotel', 'Ostello'];
+    }
+    // IT + 3 cifre provincia ISTAT + 3 cifre comune ISTAT
+    // + 2 caratteri classificazione + fino a 8 caratteri (max 18)
+    function validCin(c) {
+      return c is string && c.matches('^IT[0-9]{6}[A-Z0-9]{2}[A-Z0-9]{1,8}$');
+    }
+    // Campi che scrive SOLO lo script di verifica (firebase-admin, che
+    // ignora queste regole): il titolare non puo' mai impostarli.
+    function serverFields() {
+      return ['verified', 'verifiedMethod', 'verifiedAt', 'verifiedFor', 'hidden', 'hiddenReason', 'reportsCount'];
+    }
+    function allowedFields() {
+      return ['name', 'type', 'address', 'phone', 'website', 'lat', 'lng', 'hours',
+              'payments', 'features', 'menu', 'owner', 'createdAt', 'updatedAt',
+              'declarationAt', 'cin', 'directDiscount', 'whatsapp', 'contactEmail',
+              'ownerEmail'].concat(serverFields());
+    }
+    function emailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+    function cinPath(c) {
+      return /databases/$(database)/documents/cin/$(c);
+    }
+
+    // Controlli comuni (creazione e modifica)
+    function validListing(d) {
+      return d.keys().hasOnly(allowedFields())
+        && d.name is string && d.name.size() > 0 && d.name.size() < 200
+        && d.type is string && d.type.size() < 40
+        && d.lat is number && d.lng is number
+        && d.menu is list && d.menu.size() <= 200
+        && (!('website' in d) || (d.website is string && d.website.size() < 500
+              && (d.website == '' || d.website.matches('^https?://.+'))))
+        && (!('directDiscount' in d) || (d.directDiscount is int
+              && d.directDiscount >= 0 && d.directDiscount <= 30))
+        && (!('whatsapp' in d) || (d.whatsapp is string && d.whatsapp.size() <= 40))
+        && (!('contactEmail' in d) || (d.contactEmail is string && d.contactEmail.size() <= 200))
+        && d.declarationAt == request.time;
+    }
+
+    // Alloggi: email confermata + CIN valido, riservato a questo annuncio
+    // (il doc cin/{CIN} va scritto nello stesso batch, vedi js/store.js)
+    function validLodging(d, restaurantId) {
+      return !(d.type in lodgingTypes())
+        || (emailVerified()
+            && validCin(d.cin)
+            && getAfter(cinPath(d.cin)).data.owner == request.auth.uid
+            && getAfter(cinPath(d.cin)).data.restaurant == restaurantId);
+    }
+
+    // ---------- Annunci ----------
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && request.resource.data.owner == request.auth.uid
+        && validListing(request.resource.data)
+        && validLodging(request.resource.data, restaurantId)
+        // campi del server assenti (o al valore iniziale)
+        && (!('verified' in request.resource.data) || request.resource.data.verified == false)
+        && (!('hidden' in request.resource.data) || request.resource.data.hidden == false)
+        && (!('reportsCount' in request.resource.data) || request.resource.data.reportsCount == 0)
+        && !('verifiedMethod' in request.resource.data)
+        && !('verifiedAt' in request.resource.data)
+        && !('verifiedFor' in request.resource.data)
+        && !('hiddenReason' in request.resource.data);
+
+      allow update: if request.auth != null
+        && resource.data.owner == request.auth.uid
+        && request.resource.data.owner == request.auth.uid
+        && validListing(request.resource.data)
+        && validLodging(request.resource.data, restaurantId)
+        // il CIN, una volta impostato, non cambia piu'
+        && (!('cin' in resource.data) || request.resource.data.get('cin', '') == resource.data.cin)
+        // i campi del server restano identici
+        && request.resource.data.get('verified', false) == resource.data.get('verified', false)
+        && request.resource.data.get('hidden', false) == resource.data.get('hidden', false)
+        && request.resource.data.get('reportsCount', 0) == resource.data.get('reportsCount', 0)
+        && request.resource.data.get('verifiedMethod', '') == resource.data.get('verifiedMethod', '')
+        && request.resource.data.get('verifiedAt', null) == resource.data.get('verifiedAt', null)
+        && request.resource.data.get('verifiedFor', '') == resource.data.get('verifiedFor', '')
+        && request.resource.data.get('hiddenReason', '') == resource.data.get('hiddenReason', '')
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverFields());
+
+      // Elimina solo il titolare; se c'e' un CIN, il suo doc va eliminato
+      // nello stesso batch (cosi' il CIN si libera)
+      allow delete: if request.auth != null
+        && resource.data.owner == request.auth.uid
+        && (!('cin' in resource.data) || !existsAfter(cinPath(resource.data.cin)));
+    }
+
+    // ---------- CIN: un codice = un solo annuncio ----------
+    match /cin/{cin} {
+      allow read: if true;
+
+      allow create: if request.auth != null
+        && cin.matches('^IT[0-9]{6}[A-Z0-9]{2}[A-Z0-9]{1,8}$')
+        && request.resource.data.keys().hasOnly(['owner', 'restaurant'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.restaurant is string
+        && request.resource.data.restaurant.size() > 0
+        && request.resource.data.restaurant.size() < 100
+        // l'annuncio collegato esiste (dopo il batch), e' suo e usa questo CIN
+        && getAfter(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurant)).data.owner == request.auth.uid
+        && getAfter(/databases/$(database)/documents/restaurants/$(request.resource.data.restaurant)).data.cin == cin;
+
+      allow update: if false;
+
+      allow delete: if request.auth != null
+        && resource.data.owner == request.auth.uid
+        && !existsAfter(/databases/$(database)/documents/restaurants/$(resource.data.restaurant));
+    }
+
+    // ---------- Segnalazioni (anche senza login) ----------
+    match /reports/{reportId} {
+      allow create: if request.resource.data.keys().hasOnly(['restaurant', 'reason', 'text', 'createdAt', 'lang'])
+        && request.resource.data.keys().hasAll(['restaurant', 'reason', 'createdAt'])
+        && request.resource.data.restaurant is string
+        && request.resource.data.restaurant.size() > 0
+        && request.resource.data.restaurant.size() < 200
+        && request.resource.data.reason in ['fake', 'not_owner', 'payment', 'wrong_data', 'other']
+        && (!('text' in request.resource.data)
+            || (request.resource.data.text is string && request.resource.data.text.size() <= 500))
+        && (!('lang' in request.resource.data)
+            || (request.resource.data.lang is string && request.resource.data.lang.size() <= 5))
+        && request.resource.data.createdAt == request.time;
+      allow read, update, delete: if false;
+    }
+
+    // ---------- Tutto il resto: bloccato ----------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -7,6 +7,10 @@ Output: data/tiles/<lat10>_<lng10>.json   locali e localita' per quadrante 0.1 x
         data/tiles/index.json             elenco quadranti disponibili
         data/places/<lettera>.json        localita' per la ricerca per nome
         data/parking/<lat10>_<lng10>.json parcheggi pubblici (caricati solo per i B&B)
+        data/README.md, data/LICENSE-ODbL.txt  licenza e attribuzione (ODbL)
+
+Alloggi: il campo "cin" contiene il CIN (tag ref:cin) normalizzato e valido;
+l'app mostra SOLO gli alloggi con CIN valido.
 
 I telefoni scaricano questi file dal sito stesso dell'app: nessuna
 dipendenza dai server pubblici di OpenStreetMap.
@@ -17,6 +21,7 @@ Uso: python3 scripts/build_italia.py filtered.osm.pbf [cartella_output]
 import json
 import math
 import os
+import re
 import shutil
 import sys
 import unicodedata
@@ -26,7 +31,7 @@ import osmium
 
 AMENITIES = {"restaurant", "fast_food", "pub", "bar", "cafe",
              "biergarten", "food_court", "ice_cream"}
-PLACE_RANK = {"city": 1, "town": 2, "suburb": 3, "village": 3, "quarter": 4, "hamlet": 5}
+PLACE_RANK = {"city": 1, "town": 2, "suburb": 3, "village": 3, "quarter": 4, "hamlet": 5, "neighbourhood": 5}
 # Tag extra mostrati nella scheda "Altre informazioni"
 EXTRA_TAGS = ["stars", "rooms", "beds", "guest_house", "check_in", "check_out",
               "brand", "capacity", "reservation", "smoking", "internet_access",
@@ -37,6 +42,58 @@ LODGING = {"guest_house": "guest_house", "hotel": "hotel", "motel": "hotel",
            "hostel": "hostel", "apartment": "apartment", "chalet": "apartment"}
 PARKING_SKIP_ACCESS = {"private", "no", "customers", "permit", "delivery", "residents"}
 TILE = 10  # 10 = quadranti da 0.1 gradi (circa 11 x 8 km)
+CIN_RE = re.compile(r"^IT[0-9]{6}[A-Z0-9]{2}[A-Z0-9]{1,8}$")
+
+ATTRIBUTION = "© OpenStreetMap contributors"
+LICENSE = "ODbL-1.0"
+LICENSE_URL = "https://opendatacommons.org/licenses/odbl/1-0/"
+COPYRIGHT_URL = "https://www.openstreetmap.org/copyright"
+
+DATA_README = """# Dati OpenStreetMap di RistoApp
+
+I file di questa cartella (tiles/, places/, parking/) sono una banca dati derivata da OpenStreetMap.
+
+© OpenStreetMap contributors. Disponibile con licenza Open Database License (ODbL) 1.0:
+https://opendatacommons.org/licenses/odbl/1-0/ — fonte e dettagli: https://www.openstreetmap.org/copyright
+
+Estratto settimanale da Geofabrik (Italia), filtrato e convertito in JSON da RistoApp
+(scripts/build_italia.py). Se riusi questi dati devi citare OpenStreetMap e mantenere
+la licenza ODbL per le banche dati derivate.
+
+I contenuti inseriti dai titolari (Firestore) non fanno parte di questa banca dati.
+"""
+
+DATA_LICENSE = """Open Database License (ODbL) 1.0 - avviso
+
+The data in this directory (tiles/, places/, parking/) is a Derivative Database of
+OpenStreetMap data and is made available under the Open Database License (ODbL) 1.0.
+
+  © OpenStreetMap contributors
+  Source:  https://www.openstreetmap.org/copyright
+  Licence: https://opendatacommons.org/licenses/odbl/1-0/
+  Full legal text: https://opendatacommons.org/licenses/odbl/1-0/legalcode.txt
+
+Any rights in individual contents of the database are licensed under the
+Database Contents License: https://opendatacommons.org/licenses/dbcl/1-0/
+
+If you publicly use this data you must attribute OpenStreetMap contributors, and if
+you redistribute an adapted version of this database you must offer it under the ODbL.
+"""
+
+
+def norm_cin(value):
+    """CIN normalizzato (maiuscolo, senza spazi) se valido, altrimenti ''."""
+    c = re.sub(r"\s+", "", str(value or "")).upper()
+    return c if CIN_RE.match(c) else ""
+
+
+def write_license_files(out):
+    """README e avviso di licenza ODbL nella cartella dei dati (contenuto fisso)."""
+    os.makedirs(out, exist_ok=True)
+    with open(os.path.join(out, "README.md"), "w", encoding="utf-8") as f:
+        f.write(DATA_README)
+    with open(os.path.join(out, "LICENSE-ODbL.txt"), "w", encoding="utf-8") as f:
+        f.write(DATA_LICENSE)
 
 
 def tile_key(lat, lng):
@@ -90,6 +147,9 @@ def restaurant(osm_id, tags, lat, lng, cat):
         "payments": sorted(k[8:] for k, v in t.items() if k.startswith("payment:") and v == "yes"),
         "rawTags": {k: t[k] for k in EXTRA_TAGS if k in t},
     }
+    # Alloggi: CIN valido (ref:cin) in chiaro; senza CIN l'app non li mostra
+    if cat in LODGING.values():
+        r["cin"] = norm_cin(t.get("ref:cin"))
     # Toglie i campi vuoti: l'app li ricostruisce (file piu' leggeri)
     return {k: v for k, v in r.items() if v not in ("", [], {})}
 
@@ -176,6 +236,11 @@ def main():
         json.dump({
             "generated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "tile": TILE,
+            "attribution": ATTRIBUTION,
+            "license": LICENSE,
+            "licenseUrl": LICENSE_URL,
+            "copyrightUrl": COPYRIGHT_URL,
+            "fields": {"cin": "CIN valido (ref:cin) per gli alloggi; vuoto = senza CIN"},
             "bbox": [min(lats), min(lngs), max(lats), max(lngs)],
             "tiles": dict(sorted(index.items())),
         }, f, separators=(",", ":"))
@@ -190,6 +255,7 @@ def main():
         with open(os.path.join(out, "places", f"{letter}.json"), "w", encoding="utf-8") as f:
             json.dump(entries, f, ensure_ascii=False, separators=(",", ":"))
 
+    write_license_files(out)
     print(f"Locali: {n_rest}  Localita': {n_place}  Parcheggi: {n_park}  Quadranti: {len(index)}")
 
 

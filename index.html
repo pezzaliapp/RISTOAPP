@@ -3,6 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <!-- Content Security Policy: solo il sito stesso, l'SDK Firebase (gstatic, caricato
+       su richiesta), le API Firebase/Firestore (googleapis) e i servizi OpenStreetMap.
+       Nessuno script inline; gli stili inline (attributi style) restano ammessi. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://overpass-api.de https://overpass.private.coffee https://nominatim.openstreetmap.org; frame-src https://ristoapp-b4215.firebaseapp.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>RistoApp — Dove mangiare, dormire e parcheggiare in Italia</title>
   <meta name="description" content="Trova ristoranti, pizzerie, bar, B&amp;B, agriturismi e hotel in tutta Italia, con i parcheggi più vicini. Menu, prezzi e disponibilità su JustEat, TheFork e Booking." />
   <link rel="canonical" href="https://www.alessandropezzali.it/RISTOAPP/" />
@@ -39,11 +44,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-title" content="RISTOAPP" />
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500;1,9..144,600&display=swap" rel="stylesheet" />
-
-  <link rel="stylesheet" href="./css/styles.css?v=5.2.2" />
+  <!-- Caratteri ospitati sul sito (fonts/, licenza OFL): nessuna richiesta a Google Fonts -->
+  <link rel="preload" href="./fonts/dm-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="./fonts/fraunces-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="./css/fonts.css?v=5.3.0" />
+  <link rel="stylesheet" href="./css/styles.css?v=5.3.0" />
 </head>
 <body>
 
@@ -89,8 +94,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         </div>
         <div class="field-body">
-          <label for="queryInput" data-i18n="search.queryLabel">Piatto o tipo cucina</label>
-          <input id="queryInput" type="text" placeholder="es. pizza, sushi, trattoria, B&amp;B..." data-i18n-placeholder="search.queryPh" autocomplete="off" />
+          <label for="queryInput" data-i18n="search.queryLabel">Cosa cerchi</label>
+          <input id="queryInput" type="text" placeholder="Nome del locale o del B&amp;B, piatto, cucina…" data-i18n-placeholder="search.queryPh" autocomplete="off" />
         </div>
       </div>
 
@@ -99,8 +104,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 1 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         </div>
         <div class="field-body">
-          <label for="cityInput" data-i18n="search.cityLabel">Localit&agrave;</label>
-          <input id="cityInput" type="text" list="cityOptions" placeholder="Qualsiasi citt&agrave; italiana" data-i18n-placeholder="search.cityPh" autocomplete="off" />
+          <label for="cityInput" data-i18n="search.cityLabel">Dove</label>
+          <input id="cityInput" type="text" list="cityOptions" placeholder="Citt&agrave;, quartiere, zona o via" data-i18n-placeholder="search.cityPh" autocomplete="off" />
           <datalist id="cityOptions"></datalist>
         </div>
       </div>
@@ -172,14 +177,22 @@
       <h2 id="resultsTitle"></h2>
       <div class="results-count" id="resultsCount"></div>
     </div>
+    <p class="results-attr" id="resultsAttribution" hidden data-i18n-html="results.attribution">Dati: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL) e titolari registrati.</p>
     <div class="cards" id="results" aria-live="polite"></div>
   </main>
 
   <!-- FOOTER -->
   <footer class="app-footer">
-    <p data-i18n-html="footer.data"><strong>RistoApp</strong> &middot; Dati dei locali: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">&copy; OpenStreetMap contributors</a> (licenza ODbL).</p>
-    <p data-i18n="footer.note">RistoApp &egrave; un elenco informativo: non gestisce prenotazioni n&eacute; pagamenti. I bottoni dei portali aprono la ricerca sui siti ufficiali.</p>
-    <p><a href="#" class="footer-link" data-terms data-i18n="terms.link">Avvertenze e condizioni d&rsquo;uso</a></p>
+    <nav class="footer-links" aria-label="Informazioni legali" data-i18n-aria-label="footer.navAria">
+      <a href="#" class="footer-link" data-legal="about" data-i18n="footer.about">Chi gestisce RistoApp</a>
+      <a href="#" class="footer-link" data-legal="privacy" data-i18n="footer.privacy">Privacy e cookie</a>
+      <a href="#" class="footer-link" data-legal="terms" data-i18n="footer.terms">Condizioni d&rsquo;uso</a>
+      <a href="#" class="footer-link" data-legal="ranking" data-i18n="footer.ranking">Come ordiniamo i risultati e lo sconto</a>
+    </nav>
+    <p data-i18n="footer.note">RistoApp &egrave; un elenco informativo gratuito: non &egrave; un intermediario nella prenotazione e nel pagamento. I pulsanti dei portali aprono la ricerca sui siti ufficiali.</p>
+    <p data-i18n-html="footer.osm">Dati dei luoghi: &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a> (ODbL). Elenco Comuni: elaborazione su dati ISTAT (CC BY 4.0).</p>
+    <p class="footer-small" data-i18n="footer.trademarks">JustEat, Deliveroo, TheFork, Glovo, Google, Tripadvisor, Booking.com e Airbnb sono marchi dei rispettivi titolari. RistoApp non &egrave; affiliata n&eacute; sponsorizzata da loro: i pulsanti aprono solo una ricerca sui loro siti.</p>
+    <p class="footer-small"><strong>RistoApp</strong> v5.3.0</p>
   </footer>
 
   <!-- MODAL -->
@@ -195,16 +208,23 @@
 
   <div class="toast" id="toast" role="status"></div>
 
-  <script src="./js/i18n.js?v=5.2.2"></script>
-  <script src="./js/i18n-trust.js?v=5.2.2"></script>
-  <script src="./js/data.js?v=5.2.2"></script>
-  <!-- Firebase SDK (compat) - Fase 2 backend condiviso -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <script src="./js/store.js?v=5.2.2"></script>
-  <script src="./js/trust.js?v=5.2.2"></script>
-  <script src="./js/owner.js?v=5.2.2"></script>
-  <script src="./js/app.js?v=5.2.2"></script>
+  <!-- Nuova versione pronta: si applica da sola solo se non stai usando un modulo -->
+  <div class="update-toast" id="updateToast" role="status" hidden>
+    <span data-i18n="update.text">Aggiornamento disponibile</span>
+    <button type="button" id="updateToastBtn" data-i18n="update.btn">Aggiorna</button>
+  </div>
+
+  <script src="./js/i18n.js?v=5.3.0"></script>
+  <script src="./js/i18n-trust.js?v=5.3.0"></script>
+  <script src="./js/i18n-legal.js?v=5.3.0"></script>
+  <script src="./js/i18n-v53.js?v=5.3.0"></script>
+  <script src="./js/data.js?v=5.3.0"></script>
+  <!-- Firebase SDK (compat): NON caricato qui. store.js lo carica da gstatic.com solo
+       quando serve (area titolari, segnalazioni, moderazione). La ricerca legge gli
+       annunci pubblici con l'API REST di Firestore. -->
+  <script src="./js/store.js?v=5.3.0"></script>
+  <script src="./js/trust.js?v=5.3.0"></script>
+  <script src="./js/owner.js?v=5.3.0"></script>
+  <script src="./js/app.js?v=5.3.0"></script>
 </body>
 </html>

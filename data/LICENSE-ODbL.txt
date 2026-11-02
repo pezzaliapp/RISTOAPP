@@ -1,0 +1,15 @@
+Open Database License (ODbL) 1.0 - avviso
+
+The data in this directory (tiles/, places/, parking/) is a Derivative Database of
+OpenStreetMap data and is made available under the Open Database License (ODbL) 1.0.
+
+  © OpenStreetMap contributors
+  Source:  https://www.openstreetmap.org/copyright
+  Licence: https://opendatacommons.org/licenses/odbl/1-0/
+  Full legal text: https://opendatacommons.org/licenses/odbl/1-0/legalcode.txt
+
+Any rights in individual contents of the database are licensed under the
+Database Contents License: https://opendatacommons.org/licenses/dbcl/1-0/
+
+If you publicly use this data you must attribute OpenStreetMap contributors, and if
+you redistribute an adapted version of this database you must offer it under the ODbL.

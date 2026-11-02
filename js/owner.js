@@ -86,22 +86,52 @@
   // Vista corrente, per ridisegnarla al cambio lingua
   let view = { name: null };
 
-  function openPanel(mode) {
-    ensurePanel().classList.add('is-open');
+  // L'SDK Firebase si carica qui, alla prima apertura dell'area titolari
+  let panelReturnFocus = null;
+  async function openPanel(mode) {
+    const panel = ensurePanel();
+    if (!panel.classList.contains('is-open')) panelReturnFocus = document.activeElement;
+    panel.classList.add('is-open');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
     document.body.style.overflow = 'hidden';
+    const inner = $('#ownerPanelInner');
+    if (!Store.loaded()) {
+      view = { name: 'loading' };
+      inner.innerHTML = `<div class="owner-head"><div><div class="owner-eyebrow">${escapeHtml(t('owner.eyebrow'))}</div></div>${closeBtnHtml()}</div>
+        <div class="owner-body" style="padding:40px 26px;text-align:center;color:var(--c-muted)">${escapeHtml(t('owner.loading'))}</div>`;
+      $('#ownerCloseBtn').onclick = closePanel;
+      try { await Store.ready(); }
+      catch (e) {
+        if (!panel.classList.contains('is-open')) return;
+        view = { name: 'offline' };
+        inner.innerHTML = `<div class="owner-head"><div><div class="owner-eyebrow">${escapeHtml(t('owner.eyebrow'))}</div></div>${closeBtnHtml()}</div>
+          <div class="owner-body" style="padding:40px 26px;text-align:center;color:var(--c-accent)">${escapeHtml(e.message || t('auth.offline'))}</div>`;
+        $('#ownerCloseBtn').onclick = closePanel;
+        return;
+      }
+      if (!panel.classList.contains('is-open')) return;
+    }
     if (mode === 'register' && !Store.currentUser()) renderAuthView('register');
     else renderRouter();
+    const c = $('#ownerCloseBtn'); if (c) { try { c.focus({ preventScroll: true }); } catch {} }
   }
   function closePanel() {
     const p = $('#ownerPanel'); if (p) p.classList.remove('is-open');
     view = { name: null };
     document.body.style.overflow = '';
+    if (panelReturnFocus && document.contains(panelReturnFocus)) { try { panelReturnFocus.focus({ preventScroll: true }); } catch {} }
+    panelReturnFocus = null;
+    try { window.dispatchEvent(new Event('ristoapp:ui-idle')); } catch {}
   }
 
   // -------------- AUTH VIEW ---------------------------------
   // Registrazione a passi: scelta (locale / alloggio) -> [alloggio: CIN] -> account.
   // reg sopravvive al ridisegno per il cambio lingua.
-  let reg = { step: 'choose', kind: null, cin: '', res: null };
+  let reg = { step: 'choose', kind: null, cin: '', res: null, claimCin: '' };
+  const PENDING_CLAIM = 'ristoapp-pending-claim';
+  const getPendingClaim = () => { try { return localStorage.getItem(PENDING_CLAIM) || ''; } catch { return ''; } };
+  const setPendingClaim = v => { try { if (v) localStorage.setItem(PENDING_CLAIM, v); else localStorage.removeItem(PENDING_CLAIM); } catch {} };
   const closeBtnHtml = () => `<button class="modal-close" id="ownerCloseBtn" aria-label="${escapeAttr(t('modal.close'))}">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>`;
@@ -124,7 +154,7 @@
     // conserva quanto gia' digitato se si ridisegna (cambio lingua)
     const prev = view.name === 'auth' && $('#authForm') ? new FormData($('#authForm')) : null;
     const prevCin = $('#regCin') ? $('#regCin').value : null;
-    if (view.name !== 'auth') reg = { step: 'choose', kind: null, cin: '', res: null };
+    if (view.name !== 'auth') reg = { step: 'choose', kind: null, cin: '', res: null, claimCin: '' };
     view = { name: 'auth', mode };
     const step = isLogin ? 'login' : reg.step;
 
@@ -154,17 +184,20 @@
             placeholder="IT043013C2ABC12345" value="${escapeAttr(prevCin ?? reg.cin)}" />
         </label>
         <p class="editor-hint" style="margin:0">${t('ed.cin.hint')}</p>
-        <div id="cinResult">${reg.res && !reg.res.ok ? Trust.cinResultHtml(reg.res) : ''}</div>
+        <div id="cinResult">${reg.res && !reg.res.ok ? Trust.cinResultHtml(reg.res, { register: true }) : ''}</div>
         <button type="submit" class="btn-primary btn-full" id="cinCheckBtn">${escapeHtml(t('reg.cin.check'))}</button>
         <p class="how-honest">${escapeHtml(t('how.cinHonest'))}</p>
         <p class="auth-switch"><a href="#" id="regBack">${escapeHtml(t('owner.back'))}</a></p>
       </form>`;
     } else {
       const lodgingOk = reg.kind === 'lodging' && reg.res && reg.res.ok;
+      const claiming = !isLogin && reg.kind === 'lodging' && reg.claimCin;
       body = `<form class="auth-form" id="authForm">
         ${lodgingOk ? `<div class="reg-step">${escapeHtml(t('reg.form.step'))}</div>
           <div class="cin-summary"><code>${escapeHtml(reg.res.cin)}</code>${Trust.cinResultHtml(reg.res)}
             <a href="#" id="regChangeCin">${escapeHtml(t('reg.cin.change'))}</a></div>` : ''}
+        ${claiming ? `<div class="reg-step">${escapeHtml(t('reg.form.step'))}</div>
+          <div class="notice-box"><p style="margin:0">${escapeHtml(t('claim.regNote', { cin: reg.claimCin }))}</p></div>` : ''}
         ${!isLogin ? `
           <label class="form-field">
             <span>${escapeHtml(t('owner.field.name'))}</span>
@@ -178,6 +211,12 @@
           <span>${escapeHtml(t('owner.field.password'))} ${!isLogin ? `<em>${escapeHtml(t('owner.pwdMin'))}</em>` : ''}</span>
           <input type="password" name="password" required minlength="6" autocomplete="${isLogin ? 'current-password' : 'new-password'}" />
         </label>
+        ${!isLogin ? `
+          <label class="decl-check reg-accept">
+            <input type="checkbox" name="accept" required />
+            <span>${t('reg.accept')}</span>
+          </label>` : ''}
+        <p class="report-msg" id="authMsg" role="alert"></p>
         <button type="submit" class="btn-primary btn-full">
           ${escapeHtml(t(isLogin ? 'owner.login.btn' : 'owner.register.btn'))}
         </button>
@@ -205,6 +244,14 @@
       const el = inner.querySelector(`[name="${k}"]`);
       if (el && prev.get(k)) el.value = prev.get(k);
     });
+    if (prev && prev.get('accept')) { const a = inner.querySelector('[name="accept"]'); if (a) a.checked = true; }
+    inner.querySelectorAll('[data-reg-claim]').forEach(b => b.onclick = (e) => {
+      e.preventDefault();
+      reg.claimCin = b.dataset.regClaim;
+      reg.res = null;
+      reg.step = 'form';
+      renderAuthView('register');
+    });
     $('#ownerCloseBtn').onclick = closePanel;
     const sw = $('#switchAuth');
     if (sw) sw.onclick = (e) => { e.preventDefault(); renderAuthView(isLogin ? 'register' : 'login'); };
@@ -213,6 +260,7 @@
       e.preventDefault();
       reg.step = reg.step === 'form' && reg.kind === 'lodging' ? 'cin' : 'choose';
       if (reg.step === 'choose') reg.res = null;
+      reg.claimCin = '';
       renderAuthView('register');
     };
     inner.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => {
@@ -240,8 +288,13 @@
         const res = await Trust.checkCin(reg.cin);
         if (view.name !== 'auth' || !$('#cinForm')) return;
         reg.res = res;
-        if (res.ok) { reg.step = 'form'; renderAuthView('register'); return; }
-        $('#cinResult').innerHTML = Trust.cinResultHtml(res);
+        if (res.ok) { reg.step = 'form'; reg.claimCin = ''; renderAuthView('register'); return; }
+        $('#cinResult').innerHTML = Trust.cinResultHtml(res, { register: true });
+        $('#cinResult').querySelectorAll('[data-reg-claim]').forEach(b => b.onclick = (ev) => {
+          ev.preventDefault();
+          reg.claimCin = b.dataset.regClaim; reg.res = null; reg.step = 'form';
+          renderAuthView('register');
+        });
         btn.disabled = false; btn.textContent = t('reg.cin.check');
       };
     }
@@ -250,6 +303,14 @@
     if (authForm) authForm.onsubmit = async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
+      const msg = $('#authMsg');
+      if (msg) msg.textContent = '';
+      if (!isLogin && !fd.get('accept')) {
+        if (msg) { msg.textContent = t('reg.acceptRequired'); msg.classList.add('is-error'); }
+        return;
+      }
+      const btn = e.target.querySelector('button[type="submit"]');
+      if (btn) btn.disabled = true;
       try {
         if (isLogin) await Store.login(fd.get('email'), fd.get('password'));
         else {
@@ -259,17 +320,30 @@
             const c = reg.res.comune;
             Trust.setPendingCin({ cin: reg.res.cin, uid: u && u.uid, comune: c ? [c.name, c.prov] : null });
           }
-          reg = { step: 'choose', kind: null, cin: '', res: null };
+          if (reg.kind === 'lodging' && reg.claimCin) setPendingClaim(reg.claimCin);
+          reg = { step: 'choose', kind: null, cin: '', res: null, claimCin: '' };
         }
         renderRouter();
         if (window.refreshPublicResults) window.refreshPublicResults();
       } catch (err) {
-        alert(err.message);
+        if (msg) { msg.textContent = err.message; msg.classList.add('is-error'); }
+        else alert(err.message);
+        if (btn) btn.disabled = false;
       }
     };
   }
 
   // -------------- DASHBOARD ---------------------------------
+  const fmtDate = v => {
+    let ms = 0;
+    if (v && typeof v.toMillis === 'function') ms = v.toMillis();
+    else if (v && typeof v.seconds === 'number') ms = v.seconds * 1000;
+    else if (typeof v === 'number') ms = v;
+    if (!ms) return '';
+    try { return new Intl.DateTimeFormat(I18N.locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(ms)); }
+    catch { return new Date(ms).toISOString().slice(0, 16).replace('T', ' '); }
+  };
+
   async function renderDashboard() {
     const inner = $('#ownerPanelInner');
     const u = Store.currentUser();
@@ -277,17 +351,23 @@
     view = { name: 'dashboard' };
 
     inner.innerHTML = `<div class="owner-body" style="padding:40px 26px;text-align:center;color:var(--c-muted)">${escapeHtml(t('owner.loading'))}</div>`;
-    let mine = [];
+    let mine = [], appeals = [], claims = [], terms = { accepted: true };
     try {
-      mine = await Store.myRestaurants();
+      [mine, appeals, claims, terms] = await Promise.all([
+        Store.myRestaurants(),
+        Store.myAppeals().catch(() => []),
+        Store.myCinClaims().catch(() => []),
+        Store.termsStatus().catch(() => ({ accepted: true })),
+      ]);
     } catch (e) {
       inner.innerHTML = `<div class="owner-body" style="padding:40px 26px;text-align:center;color:var(--c-accent)">${escapeHtml(t('owner.error', { msg: e.message }))}</div>`;
       return;
     }
+    if (view.name !== 'dashboard') return;
 
     const emailBanner = u.emailVerified ? '' : `
       <div class="notice-box" id="emailBanner">
-        <strong>\u2709\uFE0F ${escapeHtml(t('dash.email.title'))}</strong>
+        <strong>✉️ ${escapeHtml(t('dash.email.title'))}</strong>
         <p>${escapeHtml(t('dash.email.text', { email: u.email }))}</p>
         <div class="notice-actions">
           <button type="button" class="chip" id="resendEmailBtn">${escapeHtml(t('dash.email.resend'))}</button>
@@ -295,6 +375,24 @@
         </div>
         <p class="notice-msg" id="emailMsg" role="status"></p>
       </div>`;
+    // Titolari registrati prima della 5.3: accettazione di informativa e condizioni
+    const termsBanner = terms.accepted ? '' : `
+      <div class="notice-box" id="termsBanner">
+        <strong>${escapeHtml(t('terms.update.title'))}</strong>
+        <label class="decl-check reg-accept" style="margin-top:8px">
+          <input type="checkbox" id="termsAccept" />
+          <span>${t('reg.accept')}</span>
+        </label>
+        <div class="notice-actions"><button type="button" class="btn-primary" id="termsAcceptBtn">${escapeHtml(t('terms.update.btn'))}</button></div>
+        <p class="notice-msg" id="termsMsg" role="status"></p>
+      </div>`;
+    const pendingClaim = getPendingClaim();
+    const claimBanner = pendingClaim && !claims.some(c => c.cin === pendingClaim) ? `
+      <div class="notice-box">
+        <strong>${escapeHtml(t('claim.pendingTitle', { cin: pendingClaim }))}</strong>
+        <p>${escapeHtml(t(u.emailVerified ? 'claim.pendingText' : 'claim.needVerified'))}</p>
+        <div class="notice-actions"><button type="button" class="btn-primary" data-cin-claim="${escapeAttr(pendingClaim)}">${escapeHtml(t('claim.open'))}</button></div>
+      </div>` : '';
 
     inner.innerHTML = `
       <div class="owner-head">
@@ -305,13 +403,14 @@
         </div>
         <div style="display:flex;gap:8px;align-items:flex-start">
           <button class="chip" id="logoutBtn">${escapeHtml(t('owner.logout'))}</button>
-          <button class="modal-close" id="ownerCloseBtn" aria-label="${escapeAttr(t('modal.close'))}">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>
+          ${closeBtnHtml()}
         </div>
       </div>
       <div class="owner-body">
         ${emailBanner}
+        ${termsBanner}
+        ${claimBanner}
+        ${Store.isAdmin() ? `<section class="admin-box" id="adminBox" aria-label="${escapeAttr(t('adm.title'))}"></section>` : ''}
         ${mine.length === 0
           ? `<div class="empty-box">
                <p><strong>${escapeHtml(t('owner.empty.title'))}</strong></p>
@@ -324,18 +423,24 @@
                  <div class="my-item">
                    <div style="min-width:0">
                      <div class="my-item-title">${escapeHtml(r.name)}</div>
-                     <div class="my-item-meta">${escapeHtml(I18N.typeLabel(r.type || ''))} \u00B7 ${escapeHtml(r.address || '')} \u00B7 ${escapeHtml(t(isLodgingType(r.type) ? 'owner.rooms' : 'owner.dishes', { n: r.menu?.length || 0 }))}</div>
+                     <div class="my-item-meta">${escapeHtml(I18N.typeLabel(r.type || ''))} · ${escapeHtml(r.address || '')} · ${escapeHtml(t(isLodgingType(r.type) ? 'owner.rooms' : 'owner.dishes', { n: Array.isArray(r.menu) ? r.menu.length : 0 }))}</div>
                    </div>
                    <div style="display:flex;gap:6px;flex-shrink:0">
-                     <button class="chip" data-edit="${r.id}">${escapeHtml(t('owner.edit'))}</button>
-                     <button class="chip chip-danger" data-delete="${r.id}">${escapeHtml(t('owner.delete'))}</button>
+                     <button class="chip" data-edit="${escapeAttr(r.id)}">${escapeHtml(t('owner.edit'))}</button>
+                     <button class="chip chip-danger" data-delete="${escapeAttr(r.id)}">${escapeHtml(t('owner.delete'))}</button>
                    </div>
                  </div>
-                 ${isLodgingType(r.type) ? verifyBlockHtml(r) : ''}
+                 ${statusBlockHtml(r, appeals.filter(a => a.restaurant === r.id))}
                  </div>`).join('')}
              </div>
              <button class="btn-primary btn-full" id="addRestaurantBtn" style="margin-top:16px">${escapeHtml(t('owner.addAnother'))}</button>`
         }
+        <details class="claim-zone">
+          <summary>${escapeHtml(t('claim.dashTitle'))}</summary>
+          <p>${escapeHtml(t('claim.dashText'))}</p>
+          ${claims.length ? `<ul class="claim-list">${claims.map(c => `<li><code>${escapeHtml(c.cin)}</code> · ${escapeHtml(fmtDate(c.createdAt))} · ${escapeHtml(t(c.status === 'open' ? 'claim.statusOpen' : 'claim.statusClosed'))}</li>`).join('')}</ul>` : ''}
+          <button type="button" class="chip" data-cin-claim="">${escapeHtml(t('claim.open'))}</button>
+        </details>
         <details class="danger-zone">
           <summary>${escapeHtml(t('acct.delete.title'))}</summary>
           <p>${escapeHtml(t('acct.delete.text'))}</p>
@@ -350,6 +455,7 @@
           <button class="btn-primary btn-full danger-btn" id="deleteAccountBtn">${escapeHtml(t('acct.delete.button'))}</button>
           <p class="editor-hint" id="deleteMsg" role="status"></p>
         </details>
+        <p class="legal-nav"><a href="#" data-legal="privacy">${escapeHtml(t('legal.privacy.title'))}</a> · <a href="#" data-legal="terms">${escapeHtml(t('legal.terms.title'))}</a></p>
       </div>`;
 
     const delBtn = $('#deleteAccountBtn');
@@ -373,6 +479,28 @@
     };
     const addBtn = $('#addRestaurantBtn'); if (addBtn) addBtn.onclick = () => renderEditor(null);
     inner.querySelectorAll('[data-copy-code]').forEach(b => b.onclick = () => Trust.copyText(b.dataset.copyCode, 'dash.verify.copied'));
+    inner.querySelectorAll('[data-verify-now]').forEach(b => b.onclick = async () => {
+      b.disabled = true;
+      try { await Store.requestVerification(b.dataset.verifyNow); Trust.toast(t('dash.verify.requested')); }
+      catch (e) { alert(e.message); b.disabled = false; }
+    });
+    inner.querySelectorAll('[data-appeal-form]').forEach(f => f.onsubmit = async (e) => {
+      e.preventDefault();
+      const txt = f.querySelector('textarea').value;
+      const msg = f.querySelector('.report-msg');
+      const btn = f.querySelector('button[type="submit"]');
+      btn.disabled = true; msg.textContent = ''; msg.classList.remove('is-error');
+      try { await Store.createAppeal(f.dataset.appealForm, txt); Trust.toast(t('appeal.sent')); await renderDashboard(); }
+      catch (err) { msg.textContent = err.message || t('rep.error'); msg.classList.add('is-error'); btn.disabled = false; }
+    });
+    const termsBtn = $('#termsAcceptBtn');
+    if (termsBtn) termsBtn.onclick = async () => {
+      const msg = $('#termsMsg');
+      if (!$('#termsAccept').checked) { msg.textContent = t('reg.acceptRequired'); msg.classList.add('is-error'); return; }
+      termsBtn.disabled = true;
+      try { await Store.acceptTerms(); $('#termsBanner').remove(); Trust.toast(t('terms.update.done')); }
+      catch (e) { msg.textContent = e.message; msg.classList.add('is-error'); termsBtn.disabled = false; }
+    };
     const resend = $('#resendEmailBtn');
     if (resend) resend.onclick = async () => {
       const msg = $('#emailMsg');
@@ -405,39 +533,221 @@
         } catch (e) { alert(e.message); }
       }
     });
+    if (Store.isAdmin()) Admin.render($('#adminBox'));
   }
 
-  // Stato di verifica di un alloggio + istruzioni (metodi automatici)
-  function verifyBlockHtml(r) {
-    const code = verifyCode(r.id);
+  // Stato dell'annuncio: visibile/nascosto (motivo, nota, contestazione) + verifica
+  function statusBlockHtml(r, myAppeals) {
+    const lodging = isLodgingType(r.type);
     const status = r.hidden === true
-      ? `<span class="status-pill is-hidden">${escapeHtml(t('dash.hidden'))}</span>`
+      ? `<span class="status-pill is-hidden">${escapeHtml(t('dash.hiddenPill'))}</span>`
       : r.verified === true
         ? `<span class="status-pill is-ok">${escapeHtml(t('dash.verified'))}</span>`
         : `<span class="status-pill is-pending">${escapeHtml(t('dash.pending'))}</span>`;
-    const cin = r.cin
-      ? `<span class="my-cin">${escapeHtml(t('dash.cin', { cin: r.cin }))}</span>`
-      : `<span class="my-cin is-missing">${escapeHtml(t('dash.noCin'))}</span>`;
-    const hiddenWhy = r.hidden === true
-      ? `<p class="editor-warn" style="margin:10px 0 0">${escapeHtml(t(r.hiddenReason === 'cin_mismatch' ? 'dash.hiddenCin' : 'dash.hiddenReports'))}</p>` : '';
-    const how = r.verified === true ? hiddenWhy : hiddenWhy + `
-      <details class="verify-how" open>
+    const cin = !lodging ? ''
+      : r.cin
+        ? `<span class="my-cin">${escapeHtml(t('dash.cin', { cin: r.cin }))}</span>`
+        : `<span class="my-cin is-missing">${escapeHtml(t('dash.noCin'))}</span>`;
+    let hiddenHtml = '';
+    if (r.hidden === true) {
+      const reasonKey = r.hiddenReason === 'cin_mismatch' ? 'dash.hiddenCin'
+        : r.hiddenReason === 'cin_claim' ? 'dash.hiddenCinClaim'
+        : r.hiddenReason === 'moderation' ? 'dash.hiddenModeration'
+        : 'dash.hiddenGeneric';
+      const note = typeof r.hiddenNote === 'string' && r.hiddenNote
+        ? `<p class="hidden-note"><strong>${escapeHtml(t('dash.hiddenNote'))}</strong> ${escapeHtml(r.hiddenNote)}</p>` : '';
+      const open = myAppeals.find(a => a.status === 'open');
+      const last = myAppeals.slice().sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))[0];
+      const appeal = open
+        ? `<p class="editor-hint">${escapeHtml(t('appeal.pending', { date: fmtDate(open.createdAt) }))}</p>`
+        : `<form class="appeal-form" data-appeal-form="${escapeAttr(r.id)}">
+             ${last ? `<p class="editor-hint">${escapeHtml(t('appeal.closed', { date: fmtDate(last.createdAt) }))}</p>` : ''}
+             <label class="form-field">
+               <span>${escapeHtml(t('appeal.label'))}</span>
+               <textarea rows="3" maxlength="1000" required placeholder="${escapeAttr(t('appeal.ph'))}"></textarea>
+             </label>
+             <p class="report-msg" role="status"></p>
+             <button type="submit" class="chip">${escapeHtml(t('appeal.btn'))}</button>
+           </form>`;
+      hiddenHtml = `<div class="hidden-box" role="note">
+          <p class="editor-warn" style="margin:0 0 6px">${escapeHtml(t(reasonKey))}</p>
+          ${note}${appeal}
+        </div>`;
+    }
+    const code = verifyCode(r.id);
+    const metaTag = `<meta name="ristoapp-verification" content="${code}">`;
+    const how = r.verified === true ? `<p class="editor-hint" style="margin:8px 0 0">${escapeHtml(t('dash.verify.change'))}</p>` : `
+      <details class="verify-how" ${r.hidden === true ? '' : 'open'}>
         <summary>${escapeHtml(t('dash.verify.title'))}</summary>
         <p>${escapeHtml(t('dash.verify.intro'))}</p>
         <div class="verify-code">
           <span>${escapeHtml(t('dash.verify.code'))}</span>
-          <code>${escapeHtml(code)}</code>
-          <button type="button" class="chip" data-copy-code="${escapeAttr(code)}">${escapeHtml(t('dash.verify.copy'))}</button>
+          <code>${escapeHtml(metaTag)}</code>
+          <button type="button" class="chip" data-copy-code="${escapeAttr(metaTag)}">${escapeHtml(t('dash.verify.copy'))}</button>
         </div>
         <ol>
           <li>${t('dash.verify.a', { code: escapeHtml(code) })}</li>
           <li>${t('dash.verify.b')}</li>
         </ol>
         ${r.website ? '' : `<p class="editor-warn">${escapeHtml(t('dash.verify.noSite'))}</p>`}
-        <p class="editor-hint" style="margin:0">${escapeHtml(t('dash.verify.why'))}</p>
+        <p class="editor-hint">${escapeHtml(t('dash.verify.shared'))}</p>
+        <p class="editor-hint">${escapeHtml(t('dash.verify.change'))}</p>
+        <p class="editor-hint" style="margin:0">${escapeHtml(t(lodging ? 'dash.verify.why' : 'dash.verify.whyFood'))}</p>
+        ${r.website ? `<button type="button" class="chip" style="margin-top:10px" data-verify-now="${escapeAttr(r.id)}">${escapeHtml(t('dash.verify.check'))}</button>` : ''}
       </details>`;
-    return `<div class="verify-box"><div class="verify-status">${status}${cin}</div>${how}</div>`;
+    return `<div class="verify-box"><div class="verify-status">${status}${cin}</div>${hiddenHtml}${how}</div>`;
   }
+
+  // -------------- MODERAZIONE (solo amministratore) -----------------
+  // Il pannello e' visibile solo all'amministratore; le Firestore Rules
+  // (isAdmin) rifiutano comunque ogni operazione di chiunque altro.
+  const Admin = (() => {
+    let tab = 'reports';
+    const names = {};
+    async function listing(id) {
+      if (!(id in names)) {
+        try { names[id] = await Store.adminGetListing(id); } catch { names[id] = null; }
+      }
+      return names[id];
+    }
+    const reasonLabel = r => I18N.has('rep.r.' + r) ? t('rep.r.' + r) : String(r || '');
+    const noteField = (id, label) => `<label class="form-field adm-note"><span>${escapeHtml(label || t('adm.note'))}</span>
+      <textarea rows="2" maxlength="1000" data-note-for="${escapeAttr(id)}" placeholder="${escapeAttr(t('adm.notePh'))}"></textarea></label>`;
+    const status = (l) => l ? (l.hidden ? `<span class="status-pill is-hidden">${escapeHtml(t('adm.isHidden'))}</span>`
+      : `<span class="status-pill is-ok">${escapeHtml(t('adm.isVisible'))}</span>`) : `<span class="status-pill is-pending">${escapeHtml(t('adm.missing'))}</span>`;
+
+    async function body() {
+      if (tab === 'reports') {
+        const list = await Store.adminOpen('reports');
+        if (!list.length) return `<p class="editor-hint">${escapeHtml(t('adm.none'))}</p>`;
+        const rows = [];
+        for (const r of list) {
+          const l = await listing(r.restaurant);
+          const name = (l && l.name) || r.name || r.restaurant;
+          const osm = Store.isOsmId(r.restaurant);
+          rows.push(`<li class="adm-item">
+            <div class="adm-head"><strong>${escapeHtml(name)}</strong> ${status(l)}
+              <small>${escapeHtml(osm ? 'OpenStreetMap ' + r.restaurant : t('adm.ownerListing'))} · ${escapeHtml(fmtDate(r.createdAt))} · ${escapeHtml(t('rep.ref'))} ${escapeHtml(r.id)}</small></div>
+            <p><strong>${escapeHtml(reasonLabel(r.reason))}</strong>${r.text ? ': ' + escapeHtml(r.text) : ''}</p>
+            ${l && l.hidden ? '' : noteField(r.id)}
+            <div class="adm-actions">
+              ${l && l.hidden ? `<button type="button" class="chip" data-adm="restore" data-id="${escapeAttr(r.id)}" data-target="${escapeAttr(r.restaurant)}">${escapeHtml(t('adm.restore'))}</button>`
+                : `<button type="button" class="chip chip-danger" data-adm="hide" data-id="${escapeAttr(r.id)}" data-target="${escapeAttr(r.restaurant)}" data-name="${escapeAttr(name)}">${escapeHtml(t('adm.hide'))}</button>`}
+              <button type="button" class="chip" data-adm="ignore" data-id="${escapeAttr(r.id)}">${escapeHtml(t('adm.ignore'))}</button>
+            </div></li>`);
+        }
+        return `<ul class="adm-list">${rows.join('')}</ul>`;
+      }
+      if (tab === 'appeals') {
+        const list = await Store.adminOpen('appeals');
+        if (!list.length) return `<p class="editor-hint">${escapeHtml(t('adm.none'))}</p>`;
+        const rows = [];
+        for (const a of list) {
+          const l = await listing(a.restaurant);
+          rows.push(`<li class="adm-item">
+            <div class="adm-head"><strong>${escapeHtml((l && l.name) || a.restaurant)}</strong> ${status(l)}
+              <small>${escapeHtml(fmtDate(a.createdAt))} · ${escapeHtml(t('rep.ref'))} ${escapeHtml(a.id)}</small></div>
+            ${l && l.hiddenNote ? `<p class="hidden-note"><strong>${escapeHtml(t('dash.hiddenNote'))}</strong> ${escapeHtml(l.hiddenNote)}</p>` : ''}
+            <p><strong>${escapeHtml(t('adm.appealText'))}</strong> ${escapeHtml(a.text || '')}</p>
+            <div class="adm-actions">
+              <button type="button" class="chip" data-adm="appealAccept" data-id="${escapeAttr(a.id)}" data-target="${escapeAttr(a.restaurant)}">${escapeHtml(t('adm.restore'))}</button>
+              <button type="button" class="chip chip-danger" data-adm="appealReject" data-id="${escapeAttr(a.id)}">${escapeHtml(t('adm.reject'))}</button>
+            </div></li>`);
+        }
+        return `<ul class="adm-list">${rows.join('')}</ul>`;
+      }
+      if (tab === 'claims') {
+        const list = await Store.adminOpen('cinClaims');
+        if (!list.length) return `<p class="editor-hint">${escapeHtml(t('adm.none'))}</p>`;
+        const rows = [];
+        for (const c of list) {
+          const holder = await Store.adminCinHolder(c.cin).catch(() => null);
+          const l = holder && holder.restaurant ? await listing(holder.restaurant) : null;
+          rows.push(`<li class="adm-item">
+            <div class="adm-head"><strong>CIN ${escapeHtml(c.cin)}</strong>
+              <small>${escapeHtml(fmtDate(c.createdAt))} · ${escapeHtml(c.email || '')}</small></div>
+            <p><strong>${escapeHtml(t('adm.claimHolder'))}</strong> ${holder ? escapeHtml((l && l.name) || holder.restaurant) + ' ' + status(l) : escapeHtml(t('adm.claimFree'))}</p>
+            <p><strong>${escapeHtml(t('adm.claimText'))}</strong> ${escapeHtml(c.text || '')}</p>
+            ${holder ? noteField(c.id) : ''}
+            <div class="adm-actions">
+              ${holder ? `<button type="button" class="chip chip-danger" data-adm="releaseCin" data-id="${escapeAttr(c.id)}" data-cin="${escapeAttr(c.cin)}">${escapeHtml(t('adm.releaseCin'))}</button>` : ''}
+              <button type="button" class="chip" data-adm="claimClose" data-id="${escapeAttr(c.id)}">${escapeHtml(t(holder ? 'adm.reject' : 'adm.closeDone'))}</button>
+            </div></li>`);
+        }
+        return `<ul class="adm-list">${rows.join('')}</ul>`;
+      }
+      // nascosti
+      const h = await Store.adminHidden();
+      if (!h.listings.length && !h.osm.length) return `<p class="editor-hint">${escapeHtml(t('adm.none'))}</p>`;
+      return `<ul class="adm-list">${h.listings.map(l => `<li class="adm-item">
+          <div class="adm-head"><strong>${escapeHtml(l.name || l.id)}</strong> <small>${escapeHtml(l.hiddenReason || '')}</small></div>
+          ${l.hiddenNote ? `<p class="hidden-note">${escapeHtml(l.hiddenNote)}</p>` : ''}
+          <div class="adm-actions"><button type="button" class="chip" data-adm="unhide" data-target="${escapeAttr(l.id)}">${escapeHtml(t('adm.restore'))}</button></div>
+        </li>`).join('')}${h.osm.map(o => `<li class="adm-item">
+          <div class="adm-head"><strong>${escapeHtml(o.name || o.osmId || o.id)}</strong> <small>OpenStreetMap ${escapeHtml(o.osmId || '')}</small></div>
+          ${o.note ? `<p class="hidden-note">${escapeHtml(o.note)}</p>` : ''}
+          <div class="adm-actions"><button type="button" class="chip" data-adm="unhide" data-target="${escapeAttr(o.osmId || '')}">${escapeHtml(t('adm.restore'))}</button></div>
+        </li>`).join('')}</ul>`;
+    }
+
+    async function act(btn, box) {
+      const a = btn.dataset.adm, id = btn.dataset.id, target = btn.dataset.target;
+      const noteEl = id ? box.querySelector(`[data-note-for="${CSS.escape(id)}"]`) : null;
+      const note = noteEl ? noteEl.value.trim() : '';
+      const msg = box.querySelector('#admMsg');
+      msg.textContent = ''; msg.classList.remove('is-error');
+      try {
+        if ((a === 'hide' || a === 'releaseCin') && !note) throw new Error(t('adm.noteRequired'));
+        btn.disabled = true;
+        if (a === 'hide') {
+          await Store.adminHide(target, note, { name: btn.dataset.name });
+          await Store.adminCloseReportsFor(target, 'hidden');
+        } else if (a === 'ignore') {
+          await Store.adminClose('reports', id, 'ignored');
+        } else if (a === 'restore') {
+          await Store.adminUnhide(target);
+          await Store.adminClose('reports', id, 'restored');
+        } else if (a === 'appealAccept') {
+          await Store.adminUnhide(target);
+          await Store.adminClose('appeals', id, 'accepted');
+        } else if (a === 'appealReject') {
+          await Store.adminClose('appeals', id, 'rejected');
+        } else if (a === 'releaseCin') {
+          await Store.adminReleaseCin({ id, cin: btn.dataset.cin }, note);
+        } else if (a === 'claimClose') {
+          await Store.adminClose('cinClaims', id, 'rejected');
+        } else if (a === 'unhide') {
+          await Store.adminUnhide(target);
+        }
+        Object.keys(names).forEach(k => delete names[k]);
+        Trust.toast(t('adm.done'));
+        if (window.refreshPublicResults) window.refreshPublicResults();
+        await render(box);
+      } catch (e) {
+        msg.textContent = e.message || String(e); msg.classList.add('is-error');
+        btn.disabled = false;
+      }
+    }
+
+    async function render(box) {
+      if (!box) return;
+      const tabs = [['reports', 'adm.tab.reports'], ['appeals', 'adm.tab.appeals'], ['claims', 'adm.tab.claims'], ['hidden', 'adm.tab.hidden']];
+      box.innerHTML = `<h3>${escapeHtml(t('adm.title'))}</h3>
+        <p class="editor-hint">${escapeHtml(t('adm.intro'))}</p>
+        <div class="adm-tabs" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" aria-selected="${k === tab}" class="chip ${k === tab ? 'is-active' : ''}" data-adm-tab="${k}">${escapeHtml(t(l))}</button>`).join('')}</div>
+        <p class="report-msg" id="admMsg" role="status"></p>
+        <div id="admBody"><p class="editor-hint">${escapeHtml(t('owner.loadingShort'))}</p></div>`;
+      box.querySelectorAll('[data-adm-tab]').forEach(b => b.onclick = () => { tab = b.dataset.admTab; render(box); });
+      let html;
+      try { html = await body(); }
+      catch (e) { html = `<p class="report-msg is-error">${escapeHtml(t('adm.error', { msg: e.message || String(e) }))}</p>`; }
+      const bodyEl = box.querySelector('#admBody');
+      if (!bodyEl) return;
+      bodyEl.innerHTML = html;
+      bodyEl.querySelectorAll('[data-adm]').forEach(b => b.onclick = () => act(b, box));
+    }
+    return { render };
+  })();
 
   // -------------- EDITOR LOCALE -----------------------------
   // opts.draft: ridisegna l'editor (cambio lingua) senza perdere i dati inseriti
@@ -446,7 +756,7 @@
     let existing = opts.draft ? (opts.existing || null) : null;
     if (restaurantId && !opts.draft) {
       inner.innerHTML = `<div class="owner-body" style="padding:40px 26px;text-align:center;color:var(--c-muted)">${escapeHtml(t('owner.loadingShort'))}</div>`;
-      try { existing = await Store.getRestaurant(restaurantId); }
+      try { existing = normalizeExisting(await Store.getRestaurant(restaurantId)); }
       catch (e) { alert(e.message); renderDashboard(); return; }
     }
     const u = Store.currentUser() || {};
@@ -527,15 +837,15 @@
           <div class="grid-2">
             <label class="form-field grid-col-2">
               <span>${escapeHtml(t('ed.name'))}</span>
-              <input name="name" required value="${escapeAttr(r.name)}" placeholder="${escapeAttr(t('owner.namePh'))}" />
+              <input name="name" required maxlength="200" value="${escapeAttr(r.name)}" placeholder="${escapeAttr(t('owner.namePh'))}" />
             </label>
             <label class="form-field grid-col-2">
               <span>${escapeHtml(t('ed.address'))}</span>
-              <input name="address" required value="${escapeAttr(r.address)}" placeholder="${escapeAttr(t('ed.addressPh'))}" />
+              <input name="address" required maxlength="300" value="${escapeAttr(r.address)}" placeholder="${escapeAttr(t('ed.addressPh'))}" />
             </label>
             <label class="form-field">
               <span>${escapeHtml(t('ed.phone'))}</span>
-              <input name="phone" value="${escapeAttr(r.phone)}" placeholder="+39 333 1234567" />
+              <input name="phone" type="tel" maxlength="40" value="${escapeAttr(r.phone)}" placeholder="+39 333 1234567" />
             </label>
             <label class="form-field">
               <span>${escapeHtml(t('ed.website'))}</span>
@@ -543,11 +853,11 @@
             </label>
             <label class="form-field">
               <span>${escapeHtml(t('ed.lat'))}</span>
-              <input name="lat" type="number" step="0.0001" required value="${r.lat}" />
+              <input name="lat" type="number" step="0.0001" required value="${escapeAttr(r.lat)}" />
             </label>
             <label class="form-field">
               <span>${escapeHtml(t('ed.lng'))}</span>
-              <input name="lng" type="number" step="0.0001" required value="${r.lng}" />
+              <input name="lng" type="number" step="0.0001" required value="${escapeAttr(r.lng)}" />
             </label>
             <div class="grid-col-2"><button type="button" class="chip" id="useCentroid" hidden>${escapeHtml(t('ed.coords.centroid'))}</button></div>
             <p class="editor-hint grid-col-2">${t('ed.coordsHint')}</p>
@@ -625,6 +935,7 @@
           <p class="editor-hint" style="margin:10px 0 0"><a href="#" data-terms>${escapeHtml(t('ed.decl.terms'))}</a></p>
         </div>
 
+        ${existing && existing.verified === true ? `<p class="editor-warn">${escapeHtml(t('dash.verify.change'))}</p>` : ''}
         <div class="editor-actions">
           <button type="submit" class="btn-primary btn-full">${escapeHtml(t(existing ? 'ed.save' : 'ed.publish'))}</button>
         </div>
@@ -752,9 +1063,37 @@
     };
   }
 
+  // Documento salvato (anche con dati vecchi o malformati) -> valori sicuri per l'editor
+  function normalizeExisting(d) {
+    if (!d) return d;
+    const sv = v => typeof v === 'string' ? v : (typeof v === 'number' && isFinite(v) ? String(v) : '');
+    const hours = {};
+    for (let i = 0; i < 7; i++) {
+      const v = d.hours && typeof d.hours === 'object' ? (d.hours[i] ?? d.hours[String(i)]) : null;
+      hours[i] = Array.isArray(v) ? v.filter(x => typeof x === 'string') : [];
+    }
+    return {
+      ...d,
+      name: sv(d.name), address: sv(d.address), phone: sv(d.phone), website: sv(d.website),
+      whatsapp: sv(d.whatsapp), contactEmail: sv(d.contactEmail), cin: sv(d.cin),
+      lat: typeof d.lat === 'number' ? d.lat : parseFloat(d.lat) || '',
+      lng: typeof d.lng === 'number' ? d.lng : parseFloat(d.lng) || '',
+      hours,
+      payments: Array.isArray(d.payments) ? d.payments.filter(x => typeof x === 'string') : [],
+      features: Array.isArray(d.features) ? d.features.filter(x => typeof x === 'string') : [],
+      menu: Array.isArray(d.menu) ? d.menu.filter(m => m && typeof m === 'object').map(m => ({ dish: sv(m.dish), price: typeof m.price === 'number' ? m.price : '' })) : [],
+      directDiscount: Number.isInteger(d.directDiscount) ? d.directDiscount : '',
+    };
+  }
+
   // Controlli: sito, CIN, sconto, contatti, email confermata, dichiarazione
+  const PHONE_RE = /^[+0-9 ()./-]*$/;
   function validateTrust(p, existing) {
     if (!okWebsite(p.website)) return t('ed.badWebsite');
+    if (p.phone && (!PHONE_RE.test(p.phone) || p.phone.length > 40)) return t('ed.badPhone');
+    const B = CFG.italyBbox || { minLat: 35.2, maxLat: 47.2, minLng: 6.5, maxLng: 18.7 };
+    if (!(p.lat >= B.minLat && p.lat <= B.maxLat && p.lng >= B.minLng && p.lng <= B.maxLng)) return t('ed.coords.outside');
+    for (const i in p.hours) if (p.hours[i].length > 4) return t('ed.tooManyRanges', { day: dayName(i) });
     if (isLodgingType(p.type)) {
       const u = Store.currentUser() || {};
       if (!u.emailVerified) return t('ed.needVerifiedEmail');
@@ -765,7 +1104,7 @@
       const d = p.directDiscount === '' ? 0 : Number(p.directDiscount);
       if (!Number.isInteger(d) || d < 0 || d > 30) return t('ed.badDiscount');
       p.directDiscount = d;
-      if (p.whatsapp && !Trust.waDigits(p.whatsapp)) return t('ed.badWhatsapp');
+      if (p.whatsapp && (!Trust.waDigits(p.whatsapp) || !PHONE_RE.test(p.whatsapp) || p.whatsapp.length > 40)) return t('ed.badWhatsapp');
       if (p.contactEmail && !Trust.validEmail(p.contactEmail)) return t('ed.badEmail');
       if (d > 0 && !p.phone && !p.whatsapp && !p.contactEmail) return t('ed.direct.needContact');
     }
@@ -818,7 +1157,7 @@
     return `<div class="menu-row" data-i="${i}">
       <input type="text"   name="dish"  value="${escapeAttr(m.dish || '')}" placeholder="${escapeAttr(t('ed.food.itemPh'))}" />
       <span class="menu-row-cur">\u20AC</span>
-      <input type="number" name="price" step="0.10" min="0" value="${m.price ?? ''}" placeholder="9.50" />
+      <input type="number" name="price" step="0.10" min="0" value="${escapeAttr(m.price ?? '')}" placeholder="9.50" />
       <button type="button" class="menu-row-del" aria-label="${escapeAttr(t('owner.remove'))}">\u00D7</button>
     </div>`;
   }
@@ -844,7 +1183,7 @@
     // Link diretto: .../RISTOAPP/#registrati apre subito la registrazione
     const openFromHash = () => { if (/^#registra/i.test(location.hash)) openPanel('register'); };
     window.addEventListener('hashchange', openFromHash);
-    Promise.resolve(Store.authReady).then(openFromHash);
+    openFromHash();   // l'SDK Firebase si carica solo se il pannello si apre
     document.addEventListener('keydown', (e) => {
       const p = document.getElementById('ownerPanel');
       if (e.key === 'Escape' && p && p.classList.contains('is-open')) closePanel();
@@ -855,6 +1194,7 @@
   I18N.onChange(() => {
     const p = $('#ownerPanel');
     if (!p || !p.classList.contains('is-open')) return;
+    if (view.name === 'loading' || view.name === 'offline') return;
     if (view.name === 'editor' && $('#editorForm')) {
       const draft = readEditorForm($('#editorForm'), view.existing);
       renderEditor(view.existing?.id || null, { draft, existing: view.existing, cinState: view.getCinState ? view.getCinState() : null });

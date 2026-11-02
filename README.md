@@ -1,10 +1,10 @@
-# 🍝 RISTOAPP v2
+# 🍝 RISTOAPP v5.3
 
 > **Trova ristoranti, pizzerie e trattorie in Italia e vai direttamente ai prezzi sui portali che usi già.**
 
 PWA che cerca locali **reali** da OpenStreetMap e ti porta con un click al menu/prezzi su JustEat, Deliveroo, TheFork, Glovo, Google o TripAdvisor.
 
-![Status](https://img.shields.io/badge/status-v2.0-C44536)
+![Status](https://img.shields.io/badge/status-v5.3.0-C44536)
 ![PWA](https://img.shields.io/badge/PWA-ready-606C38)
 ![Data](https://img.shields.io/badge/data-OpenStreetMap-7A6A5C)
 
@@ -141,8 +141,13 @@ RISTOAPP/
 ## 🎨 Design
 
 - **Palette**: terracotta `#C44536`, crema `#F5EBDC`, verde oliva `#606C38`, inchiostro `#1A1410`
-- **Display**: [Fraunces](https://fonts.google.com/specimen/Fraunces)
-- **Body**: [DM Sans](https://fonts.google.com/specimen/DM+Sans)
+- **Display**: Fraunces, **Body**: DM Sans — ospitati nel sito (`fonts/`, licenza SIL OFL 1.1, file in `fonts/LICENSE-*.txt`): nessuna richiesta a Google Fonts.
+
+## 📜 Licenze dei dati
+
+- Dati dei luoghi: © OpenStreetMap contributors, licenza ODbL (vedi `data/README.md` e `data/LICENSE-ODbL.txt`).
+- Elenco Comuni (`data-static/`): elaborazione su dati ISTAT, CC BY 4.0.
+- Setup Firebase, regole, moderazione e passi manuali: `SETUP-FIREBASE.md`.
 
 ---
 

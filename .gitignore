@@ -1,0 +1,12 @@
+# Dipendenze e file locali
+node_modules/
+.DS_Store
+.env
+.env.*
+*.log
+*.zip
+# Chiave di servizio Firebase: MAI nel repository
+*firebase-adminsdk*.json
+service-account*.json
+# Screenshot dei test
+shot*.png
