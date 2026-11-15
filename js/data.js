@@ -26,6 +26,17 @@ const RISTOAPP_CONFIG = {
     { name: 'Torino',              lat: 45.0703, lng: 7.6869 },
     { name: 'Bari',                lat: 41.1171, lng: 16.8719 },
     { name: 'Pescara',             lat: 42.4584, lng: 14.2081 },
+    // Città con nome bilingue nei dati OSM ("Casteddu/Cagliari", "Bozen - Bolzano")
+    { name: 'Cagliari',            lat: 39.2172, lng: 9.1133 },
+    { name: 'Sassari',             lat: 40.7259, lng: 8.5557 },
+    { name: 'Olbia',               lat: 40.9234, lng: 9.4987 },
+    { name: 'Nuoro',               lat: 40.3209, lng: 9.3297 },
+    { name: 'Oristano',            lat: 39.9060, lng: 8.5916 },
+    { name: 'Alghero',             lat: 40.5589, lng: 8.3153 },
+    { name: 'Iglesias',            lat: 39.3125, lng: 8.5341 },
+    { name: 'Bolzano',             lat: 46.4983, lng: 11.3548 },
+    { name: 'Merano',              lat: 46.6713, lng: 11.1525 },
+    { name: 'Bressanone',          lat: 46.7150, lng: 11.6560 },
   ],
 
   // Parole chiave che riconosciamo come "tipo cucina" per filtrare

@@ -10,7 +10,7 @@
  *  Aggiornare CACHE_NAME ad ogni rilascio.
  * ============================================================ */
 
-const CACHE_NAME = 'ristoapp-v5.3.1';
+const CACHE_NAME = 'ristoapp-v5.3.2';
 const DATA_CACHE = 'ristoapp-data-v1';     // sopravvive ai rilasci (dati settimanali)
 const DATA_MAX_ENTRIES = 300;
 const ASSETS = [

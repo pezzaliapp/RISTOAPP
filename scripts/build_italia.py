@@ -210,7 +210,18 @@ def main():
             prov = tags.get("is_in:province", "") or tags.get("ref:ISTAT", "")[:3]
             entry = [name, round(lat, 5), round(lng, 5), rank]
             tile(lat, lng)["places"].append(entry)
-            places.setdefault(bucket(name), []).append(entry + [prov] if prov else entry)
+            # Nomi bilingui ("Casteddu/Cagliari", "Bozen - Bolzano"): la località
+            # va trovata anche col nome italiano e con ciascuna delle varianti.
+            aliases = [name, tags.get("name:it") or ""]
+            aliases += [p.strip() for p in name.split("/")]
+            seen = set()
+            for alias in aliases:
+                key = norm(alias)
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                e = [alias] + entry[1:]
+                places.setdefault(bucket(alias), []).append(e + [prov] if prov else e)
             n_place += 1
 
     # Controllo di sicurezza PRIMA di toccare i dati esistenti
