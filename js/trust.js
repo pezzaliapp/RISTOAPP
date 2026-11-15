@@ -156,16 +156,6 @@
     </div>`;
   }
 
-  // Alloggio da OpenStreetMap senza CIN: lo si dice chiaramente e si invita
-  // il titolare a registrarlo (con il CIN) gratis.
-  function noCinHtml() {
-    return `<div class="modal-section cin-box">
-      <h4>${esc(t('cin.title'))}</h4>
-      <p class="cin-line"><strong>${esc(t('cin.missing'))}</strong></p>
-      <p class="cin-tip">${t('cin.missingTip')}</p>
-    </div>`;
-  }
-
   function safetyHtml(id, name) {
     return `<div class="safety-box" role="note">
       <div class="safety-title">⚠️ ${esc(t('safety.title'))}</div>
@@ -445,7 +435,7 @@
     MINISTRY_URL, CIN_RE, normCin, waDigits, validEmail, discountOf, cinOf, telHref, safeHttp, esc,
     loadIstat, comuneForCin, distanceKm, insideComune, checkCin, cinResultHtml,
     setPendingCin, getPendingCin,
-    discountBtnHtml, cinHtml, noCinHtml, safetyHtml, reportLinkHtml,
+    discountBtnHtml, cinHtml, safetyHtml, reportLinkHtml,
     openDiscount, openReport, openTerms, openLegal, openCinClaim, closeSheet, copyText, toast,
     sheetOpen,
   };

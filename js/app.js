@@ -391,9 +391,10 @@ out center tags qt;`;
     return best ? best[0] : null;
   }
 
-  // Alloggi OSM: si mostrano tutti. Il CIN valido (tag ref:cin, o rawTags
-  // per i dati costruiti prima della 5.3) si mette in evidenza; senza CIN
-  // l'alloggio resta visibile con l'indicazione "CIN non indicato".
+  // Alloggi OSM: si mostrano tutti, senza etichette. Il CIN valido (tag
+  // ref:cin, o rawTags per i dati costruiti prima della 5.3) compare nel
+  // dettaglio solo quando c'e'. Su OSM quasi nessuno lo riporta: segnalarne
+  // la mancanza farebbe sembrare irregolari strutture in regola.
   // I luoghi nascosti dopo una revisione (osmHidden) non si mostrano mai.
   function osmVisible(r, hiddenSet) {
     if (!r) return false;
@@ -909,12 +910,7 @@ out center tags qt;`;
     // Annunci dei titolari: il segno \u2713 SOLO se verificato (verified === true),
     // per alloggi e locali allo stesso modo
     const ownerVerified = r.userGenerated && r.verified === true;
-    const osmCin = !r.userGenerated && isBnb ? Trust.cinOf(r) : '';
-    const badgeHtml = !r.userGenerated
-      ? (!isBnb ? ''
-        : osmCin
-          ? `<div class="verified-badge">\u2713 ${escapeHtml(t('card.cinOk'))}</div>`
-          : `<div class="verified-badge is-unverified">${escapeHtml(t('card.noCin'))}</div>`)
+    const badgeHtml = !r.userGenerated ? ''
       : ownerVerified
         ? `<div class="verified-badge">\u2713 ${escapeHtml(t('card.verified'))}</div>`
         : `<div class="verified-badge is-unverified">${escapeHtml(t('card.unverified'))}</div>`;
@@ -951,7 +947,7 @@ out center tags qt;`;
       </a>`;
 
     return `
-      <article class="card ${ownerVerified || osmCin ? 'is-verified' : (r.userGenerated || isBnb) ? 'is-owner' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms" aria-label="${escapeHtml(r.name)}">
+      <article class="card ${ownerVerified ? 'is-verified' : r.userGenerated ? 'is-owner' : ''}" style="animation-delay:${Math.min(idx*30,500)}ms" aria-label="${escapeHtml(r.name)}">
         ${badgeHtml}
         <div class="card-top">
           <div>
@@ -1103,7 +1099,7 @@ out center tags qt;`;
           <p style="color:var(--c-muted)">${escapeHtml(t('modal.noHours'))}</p>
         </div>`)}
 
-        ${lodging && !cin ? Trust.noCinHtml() : Trust.cinHtml(cin)}
+        ${Trust.cinHtml(cin)}
         ${lodging ? Trust.safetyHtml(r.id, r.name) : ''}
 
         ${isLodging(r) ? `
