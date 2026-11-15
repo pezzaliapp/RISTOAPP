@@ -10,7 +10,7 @@ Output: data/tiles/<lat10>_<lng10>.json   locali e localita' per quadrante 0.1 x
         data/README.md, data/LICENSE-ODbL.txt  licenza e attribuzione (ODbL)
 
 Alloggi: il campo "cin" contiene il CIN (tag ref:cin) normalizzato e valido;
-l'app mostra SOLO gli alloggi con CIN valido.
+l'app mostra tutti gli alloggi e mette in evidenza quelli con CIN valido.
 
 I telefoni scaricano questi file dal sito stesso dell'app: nessuna
 dipendenza dai server pubblici di OpenStreetMap.
